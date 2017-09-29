@@ -9,7 +9,7 @@ class vlabel(dict):
         # initialization
         self.name = 'vlabel'
 
-    def get_from(self, dic):
+    def fromdic(self, dic):
         for k in dic:
             self[k] = dic[k]
 
@@ -29,8 +29,14 @@ class vlabel(dict):
                 added[key] = other[key]
         return added
 
+    def __mul__(self, num):
+        scaled = vlabel()
+        for k in self:
+            scaled[k] = num * self[k]
+        return scaled
+
     def scale(self, a):
-        # return a scaled mlabel
+        # return a scaled vlabel
         scaled = vlabel()
         for k in self:
             scaled[k] = a * self[k]
@@ -40,7 +46,7 @@ class vlabel(dict):
         # get first n largest items
         nlarged = vlabel()
         if len(self) <= n:
-            nlarged.get_from(self)
+            nlarged.fromdic(self)
         else:
             for key in heapq.nlargest(n, self, key=self.get):
                 nlarged[key] = self[key]
@@ -78,27 +84,49 @@ class vlabel(dict):
 
 
 class vlabels(dict):
-    # structure of mlabels is like {node1:mlabel1, node2:mlabel2, ...}
+    # structure of mlabels is like {node1:vlabel1, node2:vlabel2, ...}
     def __init__(self, g):
         self.name = 'vlabels'
+        self.graph = g
         for node in g.nodes():
             self[node] = vlabel()
 
     def initialization(self, g):
         for node in g.nodes():
             label = vlabel()
+            num = float(g.degree(node))
             for neigh in g.neighbors(node):
-                label[neigh] = 1.0 / g.degree(node)
+                label[neigh] = 1.0 / num
             self[node] = label
 
     def print_all(self):
         print(self)
 
-    def __add__(self,other):
+    # operations related to graph
+
+    def __add__(self, other):
         added = vlabels(self.graph)
         for node in self:
             added[node] = self[node] + other[node]
         return added
+
+    def __mul__(self, num):
+        muled = vlabels(self.graph)
+        for node in self:
+            muled[node] = self[node] * num
+        return muled
+
+    def nlarg(self):
+        nlarged = vlabels(self.graph)
+        for node in self:
+           nlarged[node] = self[node].nlarg(self.graph.degree(node))
+        return nlarged
+
+    def normalize(self):
+        normalized = vlabels(self.graph)
+        for node in self:
+            normalized[node] = self[node].normalize()
+        return normalized
 
     def to_labels(self):
         labels = dict()
@@ -121,13 +149,33 @@ class Propragation(object):
         vectors = vlabels(self.graph)
         vectors.initialization(self.graph)
         # propagation step
-        for step in xrange(15):
+        for step in xrange(100):
+            vectors_grad = vlabels(self.graph)
+            vec_all = vlabel()
+            for node in self.graph.nodes():
+                vec_all = vec_all + vectors[node]
+                for neigh in self.graph.neighbors(node):
+                    vectors_grad[node] = vectors_grad[node] + vectors[neigh]
+            vecs_all = vlabels(self.graph)
+            for node in self.graph.nodes():
+                vecs_all[node] = vec_all * (-1.0/100)
+            vectors_grad = (vectors_grad + vecs_all).nlarg().normalize()
+            vectors = (vectors * 0.5 + vectors_grad * 0.5).nlarg().normalize()
+
+        return vectors.to_labels()
+
+    def run2(self):
+        # initiazaiton
+        vectors = vlabels(self.graph)
+        vectors.initialization(self.graph)
+        # propagation step
+        for step in xrange(14):
             vectors_grad = vlabels(self.graph)
             for node in self.graph.nodes():
                 for neigh in self.graph.neighbors(node):
                     vectors_grad[node] = vectors_grad[node] + vectors[neigh]
                 vectors_grad[node] = vectors_grad[node].nlarg(self.graph.degree(node)).normalize()
             for node in self.graph.nodes():
-                vectors[node] = (vectors[node].scale(0.4) + vectors_grad[node].scale(0.6)).nlarg(self.graph.degree(node)).normalize()
+                vectors[node] = (vectors[node].scale(0.3) + vectors_grad[node].scale(0.7)).nlarg(self.graph.degree(node)).normalize()
 
-        return vectors.to_labels()
+        return vectors
