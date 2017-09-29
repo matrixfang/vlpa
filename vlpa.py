@@ -2,6 +2,17 @@ import networkx as nx
 import numpy as np
 import heapq
 
+def to_vlabel(dic):
+    vec = vlabel()
+    for key in dic:
+        vec[key] = dic[key]
+    return vec
+
+def to_vlabels(dic):
+    vecs = vlabels()
+    for key in dic:
+        vecs[key] = dic[key]
+    return vecs
 
 class vlabel(dict):
     # structure of vlabel is like {1:0.2, 2:0.3, 3:0.5}
@@ -88,6 +99,7 @@ class vlabels(dict):
     def __init__(self, g):
         self.name = 'vlabels'
         self.graph = g
+        self.pos = g.degree()
         for node in g.nodes():
             self[node] = vlabel()
 
@@ -119,7 +131,7 @@ class vlabels(dict):
     def nlarg(self):
         nlarged = vlabels(self.graph)
         for node in self:
-           nlarged[node] = self[node].nlarg(self.graph.degree(node))
+           nlarged[node] = self[node].nlarg(self.pos[node])
         return nlarged
 
     def normalize(self):
@@ -149,7 +161,10 @@ class Propragation(object):
         vectors = vlabels(self.graph)
         vectors.initialization(self.graph)
         # propagation step
-        for step in xrange(100):
+        n = float(len(self.graph.nodes()))
+        m = float(len(self.graph.edges()))
+        k_ave = float(sum(self.graph.degree().values())) / n
+        for step in xrange(60):
             vectors_grad = vlabels(self.graph)
             vec_all = vlabel()
             for node in self.graph.nodes():
@@ -158,9 +173,9 @@ class Propragation(object):
                     vectors_grad[node] = vectors_grad[node] + vectors[neigh]
             vecs_all = vlabels(self.graph)
             for node in self.graph.nodes():
-                vecs_all[node] = vec_all * (-1.0/100)
+                vecs_all[node] = vec_all * (- k_ave * k_ave / (2 * m))
             vectors_grad = (vectors_grad + vecs_all).nlarg().normalize()
-            vectors = (vectors * 0.5 + vectors_grad * 0.5).nlarg().normalize()
+            vectors = (vectors * 0.4 + vectors_grad * 0.6).nlarg().normalize()
 
         return vectors.to_labels()
 
@@ -169,13 +184,22 @@ class Propragation(object):
         vectors = vlabels(self.graph)
         vectors.initialization(self.graph)
         # propagation step
-        for step in xrange(14):
+        n = float(len(self.graph.nodes()))
+        m = float(len(self.graph.edges()))
+        k_ave = float(sum(self.graph.degree().values())) / n
+        for step in xrange(60):
             vectors_grad = vlabels(self.graph)
+            vec_all = vlabel()
             for node in self.graph.nodes():
+                vec_all = vec_all + vectors[node] * self.graph.degree(node)
                 for neigh in self.graph.neighbors(node):
                     vectors_grad[node] = vectors_grad[node] + vectors[neigh]
-                vectors_grad[node] = vectors_grad[node].nlarg(self.graph.degree(node)).normalize()
+            vecs_all = vlabels(self.graph)
             for node in self.graph.nodes():
-                vectors[node] = (vectors[node].scale(0.3) + vectors_grad[node].scale(0.7)).nlarg(self.graph.degree(node)).normalize()
+                vecs_all[node] = vec_all * (- float(self.graph.degree(node)) /(2 * m))
 
-        return vectors
+            vectors_grad = (vectors_grad + vecs_all).nlarg().normalize()
+
+            vectors = (vectors * 0.4 + vectors_grad * 0.6).nlarg().normalize()
+
+        return vectors.to_labels()

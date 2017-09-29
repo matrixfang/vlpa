@@ -56,7 +56,7 @@ def draw_group(g, real_label, label):
     plt.figure()
     nx.draw_networkx_nodes(g, pos=pos, node_color=node_color, node_size=node_size)
     nx.draw_networkx_edges(g, pos=pos, style='dotted', alpha=0.2)
-    nx.draw_networkx_labels(g, pos=pos, labels =label)
+    #nx.draw_networkx_labels(g, pos=pos, labels =label)
 
 
 def draw_network(G):

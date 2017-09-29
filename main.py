@@ -7,11 +7,14 @@ import matplotlib.pyplot as plt
 import vlpa
 
 
-G, community_label = inputdata.read_lfr(800)
-
-vlabels = vlpa.vlabels(G)
-print(vlabels)
-
+G, community_label = inputdata.read_lfr(500)
+n = float(len(G.nodes()))
+k_ave = float(sum(G.degree().values())) / n
+print(k_ave)
+pro = vlpa.Propragation(G)
+draw.draw_group(G, community_label,pro.run())
+plt.show()
+plt.close()
 
 
 
