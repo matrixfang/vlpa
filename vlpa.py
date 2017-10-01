@@ -1,18 +1,7 @@
 import networkx as nx
 import numpy as np
 import heapq
-
-def to_vlabel(dic):
-    vec = vlabel()
-    for key in dic:
-        vec[key] = dic[key]
-    return vec
-
-def to_vlabels(dic):
-    vecs = vlabels()
-    for key in dic:
-        vecs[key] = dic[key]
-    return vecs
+from random import choice
 
 class vlabel(dict):
     # structure of vlabel is like {1:0.2, 2:0.3, 3:0.5}
@@ -32,6 +21,7 @@ class vlabel(dict):
         return copyed
 
     def __add__(self, other):
+        # add other to self by sparsity adding
         added = self.copy()
         for key in other:
             if key in self:
@@ -40,18 +30,28 @@ class vlabel(dict):
                 added[key] = other[key]
         return added
 
+    def __sub__(self, other):
+        # return self - other by doing sparsity subsection
+        added = self.copy()
+        for key in other:
+            if key in self:
+                added[key] = self[key] - other[key]
+            else:
+                added[key] = -other[key]
+        return added
+
     def __mul__(self, num):
         scaled = vlabel()
         for k in self:
             scaled[k] = num * self[k]
         return scaled
 
-    def scale(self, a):
-        # return a scaled vlabel
-        scaled = vlabel()
-        for k in self:
-            scaled[k] = a * self[k]
-        return scaled
+    def norm(self, n=2):
+        return np.linalg.norm(self.values(), n)
+
+    def error(self, other):
+        error = self - other
+        return error.norm / other.norm
 
     def nlarg(self, n):
         # get first n largest items
@@ -64,11 +64,20 @@ class vlabel(dict):
         return nlarged
 
     def main(self):
-        # get only the maximam key in the vlabel
-        key_max = max(self, key=self.get)
+        # get the key respect to maximum value in the vlabel
+        # if there are some key has the same maximum value then randomly choose one
+        max_value = max(self.values())
         mained = vlabel()
-        mained[key_max] = 1.0
+        keys = [k for k in self if self[k]==max_value]
+        key = choice(keys)
+        mained = vlabel()
+        mained[key] = 1.0
         return mained
+
+    def all_max_keys(self):
+        max_value = max(self.values())
+        keys = [k for k in self if self[k] == max_value]
+        return keys
 
     def shrink(self, v):
         """
@@ -82,11 +91,12 @@ class vlabel(dict):
                 shrinked[key] = self[key] - v
         return shrinked
 
-    def normalize(self):
+    def normalize(self, n=1):
         # make the norm of self is 1.0
         normalized = vlabel()
+
         if len(self) > 0:
-            norm = float(sum(self.values()))
+            norm = self.norm(n)
             for key in self:
                 normalized[key] = float(self[key]) / norm
             return normalized
@@ -99,7 +109,6 @@ class vlabels(dict):
     def __init__(self, g):
         self.name = 'vlabels'
         self.graph = g
-        self.pos = g.degree()
         for node in g.nodes():
             self[node] = vlabel()
 
@@ -122,22 +131,33 @@ class vlabels(dict):
             added[node] = self[node] + other[node]
         return added
 
+    def __sub__(self, other):
+        subed = vlabels(self.graph)
+        for node in self:
+            subed[node] = self[node] - other[node]
+        return subed
+
     def __mul__(self, num):
         muled = vlabels(self.graph)
         for node in self:
             muled[node] = self[node] * num
         return muled
 
-    def nlarg(self):
+    def nlarg(self, pos=None):
+        if pos == None:
+            pos = self.graph.degree()
+        else:
+            pass
+
         nlarged = vlabels(self.graph)
         for node in self:
-           nlarged[node] = self[node].nlarg(self.pos[node])
+           nlarged[node] = self[node].nlarg(pos[node])
         return nlarged
 
-    def normalize(self):
+    def normalize(self,n=1):
         normalized = vlabels(self.graph)
         for node in self:
-            normalized[node] = self[node].normalize()
+            normalized[node] = self[node].normalize(n)
         return normalized
 
     def to_labels(self):
@@ -163,8 +183,9 @@ class Propragation(object):
         # propagation step
         n = float(len(self.graph.nodes()))
         m = float(len(self.graph.edges()))
+        pos = self.graph.degree()
         k_ave = float(sum(self.graph.degree().values())) / n
-        for step in xrange(60):
+        for step in xrange(100):
             vectors_grad = vlabels(self.graph)
             vec_all = vlabel()
             for node in self.graph.nodes():
@@ -173,33 +194,72 @@ class Propragation(object):
                     vectors_grad[node] = vectors_grad[node] + vectors[neigh]
             vecs_all = vlabels(self.graph)
             for node in self.graph.nodes():
-                vecs_all[node] = vec_all * (- k_ave * k_ave / (2 * m))
-            vectors_grad = (vectors_grad + vecs_all).nlarg().normalize()
-            vectors = (vectors * 0.4 + vectors_grad * 0.6).nlarg().normalize()
+                vecs_all[node] = vec_all * (- k_ave/ (2 * m))
+
+            vectors_grad = (vectors_grad + vecs_all).nlarg(pos).normalize()
+            vectors_new = (vectors * 0.4 + vectors_grad * 0.6).nlarg(pos).normalize()
+
+            for node in self.graph.nodes():
+                if vectors[node].error(vectors_new[node]) < 0.1:
+                    pos[node] = max(pos[node] - 1, 1)
+                else:
+                    pass
+            vectors = vectors_new
 
         return vectors.to_labels()
 
     def run2(self):
         # initiazaiton
-        vectors = vlabels(self.graph)
-        vectors.initialization(self.graph)
+        vecs = vlabels(self.graph)
+        vecs.initialization(self.graph)
         # propagation step
         n = float(len(self.graph.nodes()))
         m = float(len(self.graph.edges()))
         k_ave = float(sum(self.graph.degree().values())) / n
         for step in xrange(60):
-            vectors_grad = vlabels(self.graph)
+            vecs_grad = vlabels(self.graph)
             vec_all = vlabel()
             for node in self.graph.nodes():
-                vec_all = vec_all + vectors[node] * self.graph.degree(node)
+                vec_all = vec_all + vecs[node] * self.graph.degree(node)
                 for neigh in self.graph.neighbors(node):
-                    vectors_grad[node] = vectors_grad[node] + vectors[neigh]
+                    vecs_grad[node] = vecs_grad[node] + vecs[neigh]
             vecs_all = vlabels(self.graph)
             for node in self.graph.nodes():
                 vecs_all[node] = vec_all * (- float(self.graph.degree(node)) /(2 * m))
 
-            vectors_grad = (vectors_grad + vecs_all).nlarg().normalize()
+            vecs_grad = (vecs_grad + vecs_all).nlarg().normalize()
 
-            vectors = (vectors * 0.4 + vectors_grad * 0.6).nlarg().normalize()
+            vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg().normalize()
 
-        return vectors.to_labels()
+        return vecs.to_labels()
+
+    def lpa(self):
+        def estimate_stop_cond():
+            for node in self.graph.nodes():
+                vec = vlabel()
+                for neigh in self.graph.neighbors(node):
+                    vec = vec + vecs[neigh]
+                if vecs[node] in vec.all_max_keys():
+                    return False
+            return True
+
+        vecs = vlabels(self.graph)
+        for node in self.graph.nodes():
+            vec = vlabel()
+            vec[node] = 1.0
+            vecs[node] = vec
+
+        loop_count = 0
+        while estimate_stop_cond():
+            loop_count += 1
+            for node in self.graph.nodes():
+                vec = vlabel()
+                for neigh in self.graph.neighbors(node):
+                    vec = vec + vecs[neigh]
+                vecs[node] = vec.main()
+            if estimate_stop_cond() is True or loop_count >= 20:
+                break
+
+        return vecs.to_labels()
+
+
