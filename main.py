@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 import scipy as sp
 import inputdata
-import infomap
+from infomap import infomap
 import draw
 import matplotlib.pyplot as plt
 import vlpa
