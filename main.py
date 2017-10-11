@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import scipy as sp
 import inputdata
+import infomap
 import draw
 import matplotlib.pyplot as plt
 import vlpa
@@ -17,7 +18,40 @@ def nmi(labels, labels_real):
         list_real.append(labels_real[node])
     return normalized_mutual_info_score(list_cal, list_real)
 
-G, community_label = inputdata.read_lfr(128)
+
+def compare():
+    nmi_a = []
+    nmi_b = []
+    nmi_c = []
+    x = [0.0, 0.1]
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        a = vlpa.vlpa(g)
+        b = vlpa.vlpa2(g)
+        c = vlpa.clusting_infomap(g)
+        nmi_a.append(nmi(real_label, a))
+        nmi_b.append(nmi(real_label, b))
+        nmi_c.append(nmi(real_label, c))
+    # plot
+    plt.figure(1)
+    plt.plot(x, nmi_c, color='b', label='infomap')
+    plt.plot(x, nmi_a, color='r', label='vlpa')
+    plt.plot(x, nmi_b, color='g', label='vlpa2')
+    plt.legend(loc='upper right')
+    plt.savefig('compare.png')
+
+
+G, community_label = inputdata.read_lfr(0.7)
+# a = vlpa.clusting_infomap(G)
+# a = vlpa.vlpa(G)
+# print(nmi(community_label,a))
+# draw.draw_group(G, community_label, a)
+# plt.show()
+# plt.close()
+
+
+
+compare()
 
 
 # n = float(len(G.nodes()))
@@ -30,13 +64,13 @@ G, community_label = inputdata.read_lfr(128)
 # plt.show()
 # plt.close()
 # print(nmi(community_label,label))
+#
 
-
-a = vlpa.vlabel()
-b = vlpa.vlabel({1:2,3:4,4:4})
-c = vlpa.vlabel({i:i for i in xrange(10)})
-
-print(a.normalize())
+# a = vlpa.vlabel()
+# b = vlpa.vlabel({1:2,3:4,4:4})
+# c = vlpa.vlabel({i:i for i in xrange(10)})
+#
+# print(a.normalize())
 
 
 

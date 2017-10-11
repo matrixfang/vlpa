@@ -44,12 +44,12 @@ def read_community(filename):
 
 
 def read_lfr(number):
-    if number in [12, 128, 500, 800, 1300, 1000, '128b', '800b']:
-        str(number)
-        path_1 = '/Users/fangwenyi/Documents/Data_set/network/network_'+ str(number) + '/'+ str(number) + '_network.dat'
-        path_2 = '/Users/fangwenyi/Documents/Data_set/network/network_'+ str(number) + '/'+ str(number) + '_community.dat'
-    else:
-        print("There are no such network")
-    G = read_network(path_1)
-    community_label = read_community(path_2)
+    if number not in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]:
+        raise Exception("No Such Data Set")
+    str(number)
+    path_network = './data/lfr_'+str(number)+'/network.dat'
+    path_community = './data/lfr_'+str(number)+'/community.dat'
+
+    G = read_network(path_network)
+    community_label = read_community(path_community)
     return G, community_label
