@@ -27,7 +27,7 @@ def compare():
     for num in x:
         g, real_label = inputdata.read_lfr(num)
         a = vlpa.vlpa(g)
-        b = vlpa.vlpa2(g)
+        b = vlpa.lpa(g)
         c = vlpa.clusting_infomap(g)
         nmi_a.append(nmi(real_label, a))
         nmi_b.append(nmi(real_label, b))
@@ -36,7 +36,7 @@ def compare():
     plt.figure(1)
     plt.plot(x, nmi_c, color='b', label='infomap')
     plt.plot(x, nmi_a, color='r', label='vlpa')
-    plt.plot(x, nmi_b, color='g', label='vlpa2')
+    plt.plot(x, nmi_b, color='g', label='lpa')
     plt.legend(loc='upper right')
     plt.savefig('compare.png')
 
