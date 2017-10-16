@@ -1,10 +1,9 @@
 #!/bin/bash -l
 
-name ="vlpa"
+
 
 #$ -N ${name}
-##$ -o ${rootDir}${logDir}${name}.log
-#$ -o sr.log
+#$ -o ${rootDir}${logDir}${name}.log
 #$ -j y
 #$ -V
 #$ -P "roughsur"
@@ -12,6 +11,7 @@ name ="vlpa"
 #$ -M wyfang@bu.edu
 #$ -m ae
 
+name="vlpa"
 rootDir="/usr3/graduate/wyfang"
 workDir="/GitHub/vlpa"
 logDir="/GitHub/vlpa/log/"

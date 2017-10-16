@@ -3,6 +3,8 @@ import numpy as np
 import scipy as sp
 import draw
 import inputdata
+import matplotlib as mpl
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import vlpa
 from sklearn.metrics.cluster import normalized_mutual_info_score
