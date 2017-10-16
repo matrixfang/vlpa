@@ -2,8 +2,8 @@
 
 
 
-#$ -N ${name}
-#$ -o ${rootDir}${logDir}${name}.log
+#$ -N ${taskname}
+#$ -o ${rootDir}${logDir}${taskname}.log
 #$ -j y
 #$ -V
 #$ -P "roughsur"
@@ -11,12 +11,12 @@
 #$ -M wyfang@bu.edu
 #$ -m ae
 
-name="vlpa"
+taskname="vlpa"
 rootDir="/usr3/graduate/wyfang"
 workDir="/GitHub/vlpa"
 logDir="/GitHub/vlpa/log/"
 
 cd ${rootDir}${workDir}
 module load python/2.7.12
-python test.py
-mv ${name}.log ${rootDir}${logDir}
+python main.py
+mv ${taskname}.log ${rootDir}${logDir}
