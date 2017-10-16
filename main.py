@@ -42,7 +42,7 @@ def compare():
     plt.savefig('compare.png')
 
 
-G, community_label = inputdata.read_lfr(0.7)
+# G, community_label = inputdata.read_lfr(0.7)
 # a = vlpa.clusting_infomap(G)
 # a = vlpa.vlpa(G)
 # print(nmi(community_label,a))

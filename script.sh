@@ -1,7 +1,9 @@
 #!/bin/bash -l
 
-#$ -N "vlpa"
-##$ -o ${rootDir}${logDir}vlpa.log
+name ="vlpa"
+
+#$ -N ${name}
+##$ -o ${rootDir}${logDir}${name}.log
 #$ -o sr.log
 #$ -j y
 #$ -V
@@ -17,4 +19,4 @@ logDir="/GitHub/vlpa/log/"
 cd ${rootDir}${workDir}
 module load python/2.7.12
 python test.py
-mv sr.log ${rootDir}${logDir}
+mv ${name}.log ${rootDir}${logDir}
