@@ -1,6 +1,9 @@
 #!/bin/bash -l
 
-
+taskname="vlpa"
+rootDir="/usr3/graduate/wyfang"
+workDir="/GitHub/vlpa"
+logDir="/GitHub/vlpa/log/"
 
 #$ -N ${taskname}
 #$ -o ${rootDir}${logDir}${taskname}.log
@@ -11,10 +14,7 @@
 #$ -M wyfang@bu.edu
 #$ -m ae
 
-taskname="vlpa"
-rootDir="/usr3/graduate/wyfang"
-workDir="/GitHub/vlpa"
-logDir="/GitHub/vlpa/log/"
+
 
 cd ${rootDir}${workDir}
 module load python/2.7.12
