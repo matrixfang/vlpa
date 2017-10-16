@@ -2,7 +2,9 @@ import networkx as nx
 import numpy as np
 import heapq
 from random import choice
-from infomap import infomap
+import sys
+sys.path.append('../infomap/examples/python/infomap')
+import infomap
 
 
 class vlabel(dict):
