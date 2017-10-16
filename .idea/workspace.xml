@@ -1,14 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="1641d47e-c81c-41f2-9afd-df66d6158c04" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/infomap/__init__.py" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/infomap/_infomap.so" afterPath="" />
-      <change type="DELETED" beforePath="$PROJECT_DIR$/infomap/infomap.py" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/main.py" afterPath="$PROJECT_DIR$/main.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/vlpa.py" afterPath="$PROJECT_DIR$/vlpa.py" />
-    </list>
+    <list default="true" id="1641d47e-c81c-41f2-9afd-df66d6158c04" name="Default" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
