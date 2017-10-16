@@ -1,9 +1,12 @@
-#!/bin/bash -l
+#!/bin/bash
 
 taskname="vlpa"
 rootDir="/usr3/graduate/wyfang"
 workDir="/GitHub/vlpa"
 logDir="/GitHub/vlpa/log/"
+
+qsub<<EOF
+#!/bin/bash -l
 
 #$ -N ${taskname}
 #$ -o ${rootDir}${logDir}${taskname}.log
@@ -14,9 +17,8 @@ logDir="/GitHub/vlpa/log/"
 #$ -M wyfang@bu.edu
 #$ -m ae
 
-
-
 cd ${rootDir}${workDir}
 module load python/2.7.12
 python main.py
 mv ${taskname}.log ${rootDir}${logDir}
+EOF
