@@ -18,7 +18,7 @@ qsub<<EOF
 #$ -m ae
 
 cd ${rootDir}${workDir}
-module load python/2.7.12
+module load python/2.7.13
 python main.py
 mv ${taskname}.log ${rootDir}${logDir}
 EOF
