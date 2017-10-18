@@ -33,6 +33,7 @@ def compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
+
         a = vlpa.vlpa(g)
         b = vlpa.lpa(g)
         c = vlpa.clusting_infomap(g)

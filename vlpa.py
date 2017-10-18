@@ -221,6 +221,7 @@ def vlpa2(g):
 
     return vecs.to_labels()
 
+
 def vlpa3(g):
     # initiazaiton
     vecs = vlabels()
