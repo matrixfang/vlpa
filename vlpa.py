@@ -177,15 +177,19 @@ def vlpa(g):
     m = float(len(g.edges()))
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(15):
-        vec_all = vecs.sum()
+    for step in xrange(50):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0/(2 * m))
+
         vecs_grad = vlabels()
         for node in g.nodes():
             vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
 
         vecs_all = vlabels()
         for node in g.nodes():
-            vecs_all[node] = vec_all * (-k_ave * k_ave / (2 * m))
+            vecs_all[node] = vec_all * g.degree(node)
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize()
         vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize()
@@ -202,7 +206,7 @@ def vlpa2(g):
     m = float(len(g.edges()))
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(15):
+    for step in xrange(50):
         vec_all = vecs.sum()
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -213,17 +217,9 @@ def vlpa2(g):
             vecs_all[node] = vec_all * (-k_ave * k_ave / (2 * m))
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize()
-        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize()
-
-        for node in g.nodes():
-            if vecs[node].error(vecs_new[node]) < 0.1:
-                pos[node] = max(pos[node] - 1, 1)
-            else:
-                pass
-        vecs = vecs_new
+        vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize()
 
     return vecs.to_labels()
-
 
 def vlpa3(g):
     # initiazaiton
