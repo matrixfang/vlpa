@@ -29,6 +29,7 @@ def compare():
     nmi_c = []
     nmi_d = []
     nmi_e = []
+    nmi_f = []
     #x = [0.0, 0.1]
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     for num in x:
@@ -39,11 +40,13 @@ def compare():
         c = vlpa.clusting_infomap(g)
         d = community.best_partition(g)
         e = vlpa.vlpa2(g)
+        f = vlpa.vlpa3(g)
         nmi_a.append(nmi(real_label, a))
         nmi_b.append(nmi(real_label, b))
         nmi_c.append(nmi(real_label, c))
         nmi_d.append(nmi(real_label, d))
         nmi_e.append(nmi(real_label, e))
+        nmi_f.append(nmi(real_label, f))
     # plot
     plt.figure(1)
     plt.plot(x, nmi_a, label='vlpa')
@@ -51,6 +54,7 @@ def compare():
     plt.plot(x, nmi_c, label='infomap')
     plt.plot(x, nmi_d, label='louvain')
     plt.plot(x, nmi_e, label='vlpa2')
+    plt.plot(x, nmi_f, label='vlpa3')
     plt.legend(loc='upper right')
     plt.savefig('compare.png')
 
