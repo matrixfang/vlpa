@@ -2,9 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="1641d47e-c81c-41f2-9afd-df66d6158c04" name="Default" comment="">
-      <change type="DELETED" beforePath="$PROJECT_DIR$/compare.png" afterPath="" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/main.py" afterPath="$PROJECT_DIR$/main.py" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/vlpa.py" afterPath="$PROJECT_DIR$/vlpa.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -19,7 +16,7 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="15">
+            <state relative-caret-position="360">
               <caret line="31" column="5" lean-forward="false" selection-start-line="31" selection-start-column="5" selection-end-line="31" selection-end-column="5" />
               <folding>
                 <element signature="e#0#21#0" expanded="true" />
@@ -32,16 +29,15 @@
       <file leaf-file-name="vlpa.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/vlpa.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="-53">
-              <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+            <state relative-caret-position="298">
+              <caret line="217" column="0" lean-forward="true" selection-start-line="217" selection-start-column="0" selection-end-line="217" selection-end-column="0" />
               <folding>
                 <element signature="e#0#21#0" expanded="true" />
                 <element signature="e#186#3131#0" expanded="false" />
                 <element signature="e#3159#4958#0" expanded="false" />
                 <element signature="e#4978#5821#0" expanded="false" />
-                <element signature="e#5842#6563#0" expanded="false" />
-                <element signature="e#6584#7318#0" expanded="false" />
-                <element signature="e#7337#8125#0" expanded="false" />
+                <element signature="e#6712#7446#0" expanded="false" />
+                <element signature="e#7465#8253#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -62,8 +58,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectFrameBounds" extendedState="6">
-    <option name="x" value="29" />
+  <component name="ProjectFrameBounds">
     <option name="y" value="23" />
     <option name="width" value="1440" />
     <option name="height" value="873" />
@@ -155,6 +150,23 @@
     </option>
   </component>
   <component name="RunManager" selected="Python.main">
+    <configuration name="example" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/../../python/GraphRicciCurvature" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <module name="vlpa" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/../../python/GraphRicciCurvature/example.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+    </configuration>
     <configuration name="main" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
@@ -172,9 +184,14 @@
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
     </configuration>
+    <list size="2">
+      <item index="0" class="java.lang.String" itemvalue="Python.main" />
+      <item index="1" class="java.lang.String" itemvalue="Python.example" />
+    </list>
     <recent_temporary>
-      <list size="1">
+      <list size="2">
         <item index="0" class="java.lang.String" itemvalue="Python.main" />
+        <item index="1" class="java.lang.String" itemvalue="Python.example" />
       </list>
     </recent_temporary>
   </component>
@@ -195,7 +212,7 @@
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="32" width="1440" height="873" extended-state="6" />
+    <frame x="0" y="23" width="1440" height="873" extended-state="0" />
     <editor active="true" />
     <layout>
       <window_info id="Project" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.27110156" sideWeight="0.5" order="0" side_tool="false" content_ui="combo" />
@@ -248,9 +265,8 @@
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -275,9 +291,8 @@
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -302,9 +317,8 @@
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -340,9 +354,8 @@
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -367,9 +380,8 @@
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -400,18 +412,25 @@
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/../../python/GraphRicciCurvature/example.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="6" column="24" lean-forward="false" selection-start-line="6" selection-start-column="24" selection-end-line="6" selection-end-column="24" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/vlpa.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-53">
-          <caret line="247" column="0" lean-forward="true" selection-start-line="247" selection-start-column="0" selection-end-line="247" selection-end-column="0" />
+        <state relative-caret-position="298">
+          <caret line="217" column="0" lean-forward="true" selection-start-line="217" selection-start-column="0" selection-end-line="217" selection-end-column="0" />
           <folding>
             <element signature="e#0#21#0" expanded="true" />
             <element signature="e#186#3131#0" expanded="false" />
             <element signature="e#3159#4958#0" expanded="false" />
             <element signature="e#4978#5821#0" expanded="false" />
-            <element signature="e#5842#6563#0" expanded="false" />
-            <element signature="e#6584#7318#0" expanded="false" />
-            <element signature="e#7337#8125#0" expanded="false" />
+            <element signature="e#6712#7446#0" expanded="false" />
+            <element signature="e#7465#8253#0" expanded="false" />
           </folding>
         </state>
       </provider>
@@ -423,7 +442,7 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="15">
+        <state relative-caret-position="360">
           <caret line="31" column="5" lean-forward="false" selection-start-line="31" selection-start-column="5" selection-end-line="31" selection-end-column="5" />
           <folding>
             <element signature="e#0#21#0" expanded="true" />
