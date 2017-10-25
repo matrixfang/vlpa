@@ -191,8 +191,8 @@ def vlpa(g):
         for node in g.nodes():
             vecs_all[node] = vec_all * g.degree(node)
 
-        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=4)
-        vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=4)
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+        vecs = (vecs * 0.4 + vecs_grad * 0.6).shrink(0.05).nlarg(pos).normalize(n=2)
 
     return vecs.to_labels()
 
