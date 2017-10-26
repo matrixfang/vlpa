@@ -3,6 +3,7 @@ import numpy as np
 import heapq
 from random import choice
 import sys
+
 sys.path.append('../infomap/examples/python/infomap')
 import infomap
 
@@ -69,7 +70,7 @@ class vlabel(dict):
         # if there are some key has the same maximum value then randomly choose one
         max_value = max(self.values())
         mained = vlabel()
-        keys = [k for k in self if self[k]==max_value]
+        keys = [k for k in self if self[k] == max_value]
         key = choice(keys)
         mained = vlabel()
         mained[key] = 1.0
@@ -102,7 +103,7 @@ class vlabel(dict):
         # n = 1 means |x_1| + ... + |x_d| = 1
         # n = 2 means x_1^2 + ... + x_d^2 = 1
         result = vlabel()
-        if len(self)== 0:
+        if len(self) == 0:
             raise Exception("the vlabel is empty, and can't be normalized")
 
         norm = self.norm(n)
@@ -119,7 +120,7 @@ class vlabels(dict):
 
     def initialization(self, g):
         for node in g.nodes():
-            self[node] = vlabel({neigh: 1.0/g.degree(node) for neigh in g.neighbors(node)})
+            self[node] = vlabel({neigh: 1.0 / g.degree(node) for neigh in g.neighbors(node)})
 
     def print_all(self):
         print(self)
@@ -153,7 +154,7 @@ class vlabels(dict):
             raise Exception("index of vlabels and position are not the same")
         return vlabels({node: self[node].nlarg(pos[node]) for node in self})
 
-    def normalize(self,n=1):
+    def normalize(self, n=1):
         return vlabels({node: self[node].normalize(n) for node in self})
 
     def to_labels(self):
@@ -173,28 +174,84 @@ class vlabels(dict):
         return 0
 
 
+def method(method='vlpa', withshrink=False, gamma=0.5):
+    def vlpa_with_shrink(g):
+        # initiazaiton
+
+        vecs = vlabels()
+        vecs.initialization(g)
+        # propagation step
+        n = float(len(g.nodes()))
+        m = float(len(g.edges()))
+        pos = g.degree()
+        k_ave = float(sum(g.degree().values())) / n
+        for step in xrange(60):
+
+            # if step > 50:
+            #     pos = {}.fromkeys(g.nodes(), 1)
+
+            vec_all = vlabel()
+            for node in g.nodes():
+                vec_all = vec_all + vecs[node] * g.degree(node)
+            vec_all = vec_all * (- 1.0 / (2 * m))
+
+            vecs_grad = vlabels()
+            for node in g.nodes():
+                vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+            vecs_all = vlabels()
+            for node in g.nodes():
+                vecs_all[node] = vec_all * g.degree(node)
+
+            vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+            vecs = (vecs * (1 - gamma) + vecs_grad * gamma).shrink(0.05).nlarg(pos).normalize(n=2)
+
+        return vecs.to_labels()
+
+    def vlpa_without_shrink(g):
+        # initiazaiton
+
+        vecs = vlabels()
+        vecs.initialization(g)
+        # propagation step
+        n = float(len(g.nodes()))
+        m = float(len(g.edges()))
+        pos = g.degree()
+        k_ave = float(sum(g.degree().values())) / n
+        for step in xrange(60):
+
+            # if step > 50:
+            #     pos = {}.fromkeys(g.nodes(), 1)
+
+            vec_all = vlabel()
+            for node in g.nodes():
+                vec_all = vec_all + vecs[node] * g.degree(node)
+            vec_all = vec_all * (- 1.0 / (2 * m))
+
+            vecs_grad = vlabels()
+            for node in g.nodes():
+                vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+            vecs_all = vlabels()
+            for node in g.nodes():
+                vecs_all[node] = vec_all * g.degree(node)
+
+            vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+            vecs = (vecs * (1-gamma) + vecs_grad * gamma).nlarg(pos).normalize(n=2)
+
+        return vecs.to_labels()
+
+    if method == 'vlpa':
+        if withshrink == False:
+            return vlpa_with_shrink
+        elif withshrink == True:
+            return vlpa_without_shrink
+        else:
+            return None
+
+
 def vlpa(g):
     # initiazaiton
-    def inner_lpa():
-        def estimate_stop_cond():
-            for node in g.nodes():
-                vec = vlabel()
-                for neigh in g.neighbors(node):
-                    vec = vec + vecs[neigh]
-                if vecs[node] in vec.all_max_keys():
-                    return False
-            return True
-
-        loop_count = 0
-        while estimate_stop_cond():
-            loop_count += 1
-            for node in g.nodes():
-                vec = vlabel()
-                for neigh in g.neighbors(node):
-                    vec = vec + vecs[neigh]
-                vecs[node] = vec.main()
-            if estimate_stop_cond() is True or loop_count >= 15:
-                break
 
     vecs = vlabels()
     vecs.initialization(g)
@@ -203,11 +260,15 @@ def vlpa(g):
     m = float(len(g.edges()))
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(50):
+    for step in xrange(60):
+
+        # if step > 50:
+        #     pos = {}.fromkeys(g.nodes(), 1)
+
         vec_all = vlabel()
         for node in g.nodes():
             vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0/(2 * m))
+        vec_all = vec_all * (- 1.0 / (2 * m))
 
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -219,9 +280,6 @@ def vlpa(g):
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
         vecs = (vecs * 0.4 + vecs_grad * 0.6).shrink(0.05).nlarg(pos).normalize(n=2)
-        vecs.main()
-
-        inner_lpa()
 
     return vecs.to_labels()
 
@@ -239,7 +297,7 @@ def vlpa2(g):
         vec_all = vlabel()
         for node in g.nodes():
             vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0/(2 * m))
+        vec_all = vec_all * (- 1.0 / (2 * m))
 
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -268,7 +326,7 @@ def vlpa3(g):
         vec_all = vlabel()
         for node in g.nodes():
             vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0/(2 * m))
+        vec_all = vec_all * (- 1.0 / (2 * m))
 
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -308,7 +366,7 @@ def lpa(g):
             for neigh in g.neighbors(node):
                 vec = vec + vecs[neigh]
             vecs[node] = vec.main()
-        if estimate_stop_cond() is True or loop_count >= 15:
+        if loop_count >= 15:
             break
 
     return vecs.to_labels()

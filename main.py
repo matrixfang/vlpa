@@ -11,8 +11,6 @@ from sklearn.metrics.cluster import normalized_mutual_info_score
 import community
 
 
-
-
 def nmi(labels, labels_real):
     # normalized mutual information
     list_cal = []
@@ -59,11 +57,23 @@ def compare():
     plt.savefig('compare.png')
 
 
-def modularity_compare():
-    pass
+def vlpa_compare():
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    m1 = vlpa.method(withshrink=True)
+    m2 = vlpa.method(withshrink=False)
+    nmi_a = []
+    nmi_b = []
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        nmi_a.append(nmi(real_label, m1(g)))
+        nmi_b.append(nmi(real_label, m2(g)))
 
+    plt.figure(1)
+    plt.plot(x, nmi_a, label='withshrink')
+    plt.plot(x, nmi_b, label='withoutshrink')
+    plt.legend(loc='upper left')
+    plt.savefig('compare.png')
 
-#G, community_label = inputdata.read_lfr(0.5)
 
 # a = community.best_partition(G)
 # b = vlpa.clusting_infomap(G)
@@ -74,7 +84,8 @@ def modularity_compare():
 #     G.node[node]['community'] = community_label[node]
 #
 # nx.write_gexf(G, 'lfr0.5.gexf')
-#v = vlpa.vlpa(G)
-#print(v)
 
-compare()
+
+# compare()
+
+vlpa_compare()
