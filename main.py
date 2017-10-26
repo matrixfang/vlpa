@@ -63,7 +63,7 @@ def modularity_compare():
     pass
 
 
-# G, community_label = inputdata.read_lfr(0.5)
+#G, community_label = inputdata.read_lfr(0.5)
 
 # a = community.best_partition(G)
 # b = vlpa.clusting_infomap(G)
@@ -74,5 +74,7 @@ def modularity_compare():
 #     G.node[node]['community'] = community_label[node]
 #
 # nx.write_gexf(G, 'lfr0.5.gexf')
+#v = vlpa.vlpa(G)
+#print(v)
 
 compare()

@@ -167,9 +167,35 @@ class vlabels(dict):
             labels[key] = symbols.index(labels[key])
         return labels
 
+    def main(self):
+        for node in self:
+            self[node] = self[node].main()
+        return 0
+
 
 def vlpa(g):
     # initiazaiton
+    def inner_lpa():
+        def estimate_stop_cond():
+            for node in g.nodes():
+                vec = vlabel()
+                for neigh in g.neighbors(node):
+                    vec = vec + vecs[neigh]
+                if vecs[node] in vec.all_max_keys():
+                    return False
+            return True
+
+        loop_count = 0
+        while estimate_stop_cond():
+            loop_count += 1
+            for node in g.nodes():
+                vec = vlabel()
+                for neigh in g.neighbors(node):
+                    vec = vec + vecs[neigh]
+                vecs[node] = vec.main()
+            if estimate_stop_cond() is True or loop_count >= 15:
+                break
+
     vecs = vlabels()
     vecs.initialization(g)
     # propagation step
@@ -193,6 +219,9 @@ def vlpa(g):
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
         vecs = (vecs * 0.4 + vecs_grad * 0.6).shrink(0.05).nlarg(pos).normalize(n=2)
+        vecs.main()
+
+        inner_lpa()
 
     return vecs.to_labels()
 
@@ -257,9 +286,6 @@ def vlpa3(g):
 
 def lpa(g):
     def estimate_stop_cond():
-        global node
-        global vec
-
         for node in g.nodes():
             vec = vlabel()
             for neigh in g.neighbors(node):
