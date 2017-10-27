@@ -57,7 +57,7 @@ def compare():
     plt.savefig('compare.png')
 
 
-def vlpa_compare():
+def shrink_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     m1 = vlpa.method(withshrink=True)
     m2 = vlpa.method(withshrink=False)
@@ -74,6 +74,25 @@ def vlpa_compare():
     plt.legend(loc='upper left')
     plt.savefig('compare.png')
 
+def gamma_compare():
+    x=[0.0,0.1]
+    methods = dict()
+    nmi_dic =dict()
+    gamma_list = [0.1,0.3,0.5,0.7,0.9]
+    for gamma in gamma_list:
+        methods[gamma] = vlpa.method(withshrink=False,gamma=gamma)
+        nmi_dic[gamma] = []
+
+    for num in x:
+        g,real_label = inputdata.read_lfr(num)
+        for gamma in gamma_list:
+            nmi_dic[gamma].append(nmi(real_label, methods[gamma](g)))
+
+    plt.figure(1)
+    for gamma in gamma_list:
+        plt.plot(x, nmi_dic[gamma], label='gamma='+str(gamma))
+    plt.legend(loc='upper left')
+    plt.savefig('gamma_compare.png')
 
 # a = community.best_partition(G)
 # b = vlpa.clusting_infomap(G)
@@ -88,4 +107,4 @@ def vlpa_compare():
 
 # compare()
 
-vlpa_compare()
+gamma_compare()
