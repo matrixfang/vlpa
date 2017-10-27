@@ -75,7 +75,7 @@ def shrink_compare():
     plt.savefig('compare.png')
 
 def gamma_compare():
-    x=[0.0,0.1]
+    x=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     methods = dict()
     nmi_dic =dict()
     gamma_list = [0.1,0.3,0.5,0.7,0.9]
