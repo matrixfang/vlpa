@@ -174,7 +174,67 @@ class vlabels(dict):
         return 0
 
 
-def method(withshrink=False, gamma=0.5):
+def method(posshrink=False, withshrink=False, gamma=0.5):
+    def vlpa_pos_shrink(g):
+        # initiazaiton
+
+        vecs = vlabels()
+        vecs.initialization(g)
+        # propagation step
+        n = float(len(g.nodes()))
+        m = float(len(g.edges()))
+        pos = g.degree()
+        k_ave = float(sum(g.degree().values())) / n
+        for step in xrange(60):
+            if step > 50:
+                pos = {}.fromkeys(g.nodes(), 1)
+
+            vec_all = vlabel()
+            for node in g.nodes():
+                vec_all = vec_all + vecs[node] * g.degree(node)
+            vec_all = vec_all * (- 1.0 / (2 * m))
+
+            vecs_grad = vlabels()
+            for node in g.nodes():
+                vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+            vecs_all = vlabels()
+            for node in g.nodes():
+                vecs_all[node] = vec_all * g.degree(node)
+
+            vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+            vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        return vecs.to_labels()
+
+    def vlpa_no_pos_shrink(g):
+        # initiazaiton
+
+        vecs = vlabels()
+        vecs.initialization(g)
+        # propagation step
+        n = float(len(g.nodes()))
+        m = float(len(g.edges()))
+        pos = g.degree()
+        k_ave = float(sum(g.degree().values())) / n
+        for step in xrange(60):
+            vec_all = vlabel()
+            for node in g.nodes():
+                vec_all = vec_all + vecs[node] * g.degree(node)
+            vec_all = vec_all * (- 1.0 / (2 * m))
+
+            vecs_grad = vlabels()
+            for node in g.nodes():
+                vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+            vecs_all = vlabels()
+            for node in g.nodes():
+                vecs_all[node] = vec_all * g.degree(node)
+
+            vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+            vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        return vecs.to_labels()
 
     def vlpa_with_shrink(g):
         # initiazaiton
@@ -242,14 +302,19 @@ def method(withshrink=False, gamma=0.5):
 
         return vecs.to_labels()
 
+    if posshrink==True:
+        return vlpa_pos_shrink
 
-    if withshrink==True:
-        return vlpa_with_shrink
-    elif withshrink==False:
-        return vlpa_without_shrink
-    else:
-        raise "must be boolean value"
-    pass
+    elif posshrink == False:
+        return vlpa_no_pos_shrink
+
+    # if withshrink==True:
+    #     return vlpa_with_shrink
+    # elif withshrink==False:
+    #     return vlpa_without_shrink
+    # else:
+    #     raise "must be boolean value"
+    # pass
 
 
 def basic_vlpa(g):

@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import scipy as sp
 import draw
+import pickle
 import inputdata
 import matplotlib as mpl
 mpl.use("Agg")
@@ -58,7 +59,7 @@ def compare():
 
 
 def shrink_compare():
-    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     m1 = vlpa.method(withshrink=True)
     m2 = vlpa.method(withshrink=False)
     nmi_a = []
@@ -75,10 +76,10 @@ def shrink_compare():
     plt.savefig('compare.png')
 
 def gamma_compare():
-    x=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    x=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     methods = dict()
     nmi_dic =dict()
-    gamma_list = [0.1,0.3,0.5,0.7,0.9]
+    gamma_list = [0.1, 0.3, 0.5, 0.7, 0.9]
     for gamma in gamma_list:
         methods[gamma] = vlpa.method(withshrink=False,gamma=gamma)
         nmi_dic[gamma] = []
@@ -94,6 +95,22 @@ def gamma_compare():
     plt.legend(loc='upper left')
     plt.savefig('gamma_compare.png')
 
+def pos_compare():
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    m1 = vlpa.method(posshrink=True)
+    m2 = vlpa.method(posshrink=False)
+    nmi_a = []
+    nmi_b = []
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        nmi_a.append(nmi(real_label, m1(g)))
+        nmi_b.append(nmi(real_label, m2(g)))
+
+    with open('pos_compare.dat','wb') as f:
+        pickle.dump(x, f)
+        pickle.dump(nmi_a, f)
+        pickle.dump(nmi_b, f)
+
 # a = community.best_partition(G)
 # b = vlpa.clusting_infomap(G)
 # c = vlpa.vlpa(G)
@@ -107,4 +124,4 @@ def gamma_compare():
 
 # compare()
 
-gamma_compare()
+pos_compare()
