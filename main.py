@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import vlpa
 from sklearn.metrics.cluster import normalized_mutual_info_score
 import community
+import nvlpa
 
 
 def nmi(labels, labels_real):
@@ -20,7 +21,6 @@ def nmi(labels, labels_real):
         list_cal.append(labels[node])
         list_real.append(labels_real[node])
     return normalized_mutual_info_score(list_cal, list_real)
-
 
 def compare():
     nmi_a = []
@@ -56,7 +56,6 @@ def compare():
     # plt.plot(x, nmi_f, label='vlpa3')
     plt.legend(loc='upper left')
     plt.savefig('compare.png')
-
 
 def shrink_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -124,4 +123,6 @@ def pos_compare():
 
 # compare()
 
-pos_compare()
+g, real_label = inputdata.read_lfr(0.5)
+
+print(nvlpa.nbasic_vlpa(g))

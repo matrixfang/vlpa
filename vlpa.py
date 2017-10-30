@@ -2,8 +2,11 @@ import networkx as nx
 import numpy as np
 import heapq
 from random import choice
+import scipy as sp
+from scipy.sparse import *
+import inputdata
+import math
 import sys
-
 sys.path.append('../infomap/examples/python/infomap')
 import infomap
 
@@ -174,6 +177,7 @@ class vlabels(dict):
         return 0
 
 
+
 def method(posshrink=False, withshrink=False, gamma=0.5):
     def vlpa_pos_shrink(g):
         # initiazaiton
@@ -328,6 +332,7 @@ def basic_vlpa(g):
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
     for step in xrange(60):
+        print(step)
 
         # if step > 50:
         #     pos = {}.fromkeys(g.nodes(), 1)
