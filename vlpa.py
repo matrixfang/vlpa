@@ -3,7 +3,8 @@ import numpy as np
 import heapq
 from random import choice
 import sys
-
+import time
+import community
 sys.path.append('../infomap/examples/python/infomap')
 import infomap
 
@@ -48,7 +49,14 @@ class vlabel(dict):
             scaled[k] = num * self[k]
         return scaled
 
-    def norm(self, n=1):
+    def dot(self,other):
+        result = 0.0
+        for node in self:
+            if node in other:
+                result += self[node] * other[node]
+        return result
+
+    def norm(self, n=2):
         return np.linalg.norm(self.values(), n)
 
     def error(self, other):
@@ -140,6 +148,13 @@ class vlabels(dict):
     def __mul__(self, num):
         return vlabels({node: self[node] * num for node in self})
 
+    def error(self, other):
+        error = 0.0
+        for node in self:
+            error += self[node].error(other[node])
+        return error/len(self)
+
+
     def sum(self):
         result = vlabel()
         for node in self:
@@ -172,6 +187,75 @@ class vlabels(dict):
         for node in self:
             self[node] = self[node].main()
         return 0
+
+
+def basic_vlpa(g):
+    # initiazaiton
+
+    vecs = vlabels()
+    vecs.initialization(g)
+    # propagation step
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+
+    def estimate_change_condition():
+        cond_one = abs(vecs.error(vecs_new)) < 0.01
+        cond_two = step > 10
+        return cond_one & cond_two
+
+    def estimate_stop_condition():
+        m_new = community.modularity(vecs_new.to_labels(), g)
+        m_old = community.modularity(vecs.to_labels(), g)
+        cond_three = abs((m_new - m_old) / m_new) < 0.01
+        cond_four = step > 5
+        return cond_three & cond_four
+
+
+    for step in xrange(100):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        if estimate_change_condition():
+            break
+        vecs = vecs_new
+
+    pos = {}.fromkeys(g.nodes(), 1)
+    for step in xrange(10):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.4+ vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        if estimate_stop_condition():
+            break
+        vecs = vecs_new
+
+    return vecs.to_labels()
 
 
 def method(posshrink=False, withshrink=False, gamma=0.5):
@@ -232,7 +316,9 @@ def method(posshrink=False, withshrink=False, gamma=0.5):
                 vecs_all[node] = vec_all * g.degree(node)
 
             vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-            vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+            vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+            print(vecs.error(vecs_new))
+            vecs = vecs_new
 
         return vecs.to_labels()
 
@@ -317,40 +403,6 @@ def method(posshrink=False, withshrink=False, gamma=0.5):
     # pass
 
 
-def basic_vlpa(g):
-    # initiazaiton
-
-    vecs = vlabels()
-    vecs.initialization(g)
-    # propagation step
-    n = float(len(g.nodes()))
-    m = float(len(g.edges()))
-    pos = g.degree()
-    k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(60):
-
-        # if step > 50:
-        #     pos = {}.fromkeys(g.nodes(), 1)
-
-        vec_all = vlabel()
-        for node in g.nodes():
-            vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0 / (2 * m))
-
-        vecs_grad = vlabels()
-        for node in g.nodes():
-            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
-
-        vecs_all = vlabels()
-        for node in g.nodes():
-            vecs_all[node] = vec_all * g.degree(node)
-
-        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-        vecs = (vecs * 0.4 + vecs_grad * 0.6).shrink(0.05).nlarg(pos).normalize(n=2)
-
-    return vecs.to_labels()
-
-
 def lpa(g):
     def estimate_stop_cond():
         for node in g.nodes():
@@ -381,16 +433,25 @@ def lpa(g):
     return vecs.to_labels()
 
 
-def clusting_infomap(G):
+def clustering_infomap(G):
     """
-    	Partition network with the Infomap algorithm.
-    	Annotates nodes with 'community' id and return number of communities found.
-    	"""
+    Partition network with the Infomap algorithm.
+    Annotates nodes with 'community' id and return number of communities found.
+    """
+    "transform G to g"
+    list = G.nodes()
+    def n2i(node):
+        return list.index(node)
+    g1 = nx.Graph()
+    for e in G.edges():
+        g1.add_edge(n2i(e[0]), n2i(e[1]))
+
+
 
     infomapWrapper = infomap.Infomap("--two-level")
 
     print("Building Infomap network from a NetworkX graph...")
-    for e in G.edges_iter():
+    for e in g1.edges_iter():
         infomapWrapper.addLink(*e)
 
     print("Find communities with Infomap...")
@@ -403,5 +464,15 @@ def clusting_infomap(G):
     communities = {}
     for node in tree.leafIter():
         communities[node.originalLeafIndex] = node.moduleIndex()
+    real_commuinties = {}
 
-    return communities
+    #transform to original commuinties
+    for i in communities:
+        real_commuinties[list[i]] = communities[i]
+
+
+    return real_commuinties
+
+
+def nonmodel(g):
+    return {}.fromkeys(g.nodes(), 1)

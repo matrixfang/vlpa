@@ -12,7 +12,7 @@ from sklearn.metrics.cluster import normalized_mutual_info_score
 import community
 
 
-def nmi(labels, labels_real):
+def nmi(labels_real, labels):
     # normalized mutual information
     list_cal = []
     list_real = []
@@ -56,7 +56,6 @@ def compare():
     # plt.plot(x, nmi_f, label='vlpa3')
     plt.legend(loc='upper left')
     plt.savefig('compare.png')
-
 
 def shrink_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -111,6 +110,16 @@ def pos_compare():
         pickle.dump(nmi_a, f)
         pickle.dump(nmi_b, f)
 
+
+def test():
+    g, real_label = inputdata.read_lfr(0.6)
+    label = vlpa.clustering_infomap(g)
+    label2 = vlpa.basic_vlpa(g)
+    print('nmi of vlpa is', nmi(real_label, label2))
+    print('nmi of vlpa is', community.modularity(label2, g))
+    print('nmi of infomap is', nmi(real_label, label))
+    print('nmi of infomap is ', community.modularity(label, g))
+
 # a = community.best_partition(G)
 # b = vlpa.clusting_infomap(G)
 # c = vlpa.vlpa(G)
@@ -124,4 +133,4 @@ def pos_compare():
 
 # compare()
 
-pos_compare()
+test()
