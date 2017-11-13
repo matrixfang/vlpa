@@ -4,12 +4,12 @@ import scipy as sp
 import draw
 import pickle
 import inputdata
-import matplotlib as mpl
-mpl.use("Agg")
 import matplotlib.pyplot as plt
 import vlpa
 from sklearn.metrics.cluster import normalized_mutual_info_score
 import community
+import matplotlib as mpl
+mpl.use("Agg")
 
 
 def nmi(labels_real, labels):
@@ -29,7 +29,7 @@ def compare():
     nmi_d = []
     nmi_e = []
     nmi_f = []
-    #x = [0.0, 0.1]
+    # x = [0.0, 0.1]
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
@@ -57,6 +57,7 @@ def compare():
     plt.legend(loc='upper left')
     plt.savefig('compare.png')
 
+
 def shrink_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     m1 = vlpa.method(withshrink=True)
@@ -74,25 +75,27 @@ def shrink_compare():
     plt.legend(loc='upper left')
     plt.savefig('compare.png')
 
+
 def gamma_compare():
-    x=[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     methods = dict()
-    nmi_dic =dict()
+    nmi_dic = dict()
     gamma_list = [0.1, 0.3, 0.5, 0.7, 0.9]
     for gamma in gamma_list:
-        methods[gamma] = vlpa.method(withshrink=False,gamma=gamma)
+        methods[gamma] = vlpa.method(withshrink=False, gamma=gamma)
         nmi_dic[gamma] = []
 
     for num in x:
-        g,real_label = inputdata.read_lfr(num)
+        g, real_label = inputdata.read_lfr(num)
         for gamma in gamma_list:
             nmi_dic[gamma].append(nmi(real_label, methods[gamma](g)))
 
     plt.figure(1)
     for gamma in gamma_list:
-        plt.plot(x, nmi_dic[gamma], label='gamma='+str(gamma))
+        plt.plot(x, nmi_dic[gamma], label='gamma=' + str(gamma))
     plt.legend(loc='upper left')
     plt.savefig('gamma_compare.png')
+
 
 def pos_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -105,10 +108,21 @@ def pos_compare():
         nmi_a.append(nmi(real_label, m1(g)))
         nmi_b.append(nmi(real_label, m2(g)))
 
-    with open('pos_compare.dat','wb') as f:
+    with open('pos_compare.dat', 'wb') as f:
         pickle.dump(x, f)
         pickle.dump(nmi_a, f)
         pickle.dump(nmi_b, f)
+
+
+def convergence_test():
+    g, real_label = inputdata.read_lfr(0.6)
+    mod = vlpa.convergence_vlpa(g, gamma=0.6, mod='both')
+    opt_value = community.modularity(real_label, g)
+    log_values = [np.log(abs(v - opt_value)) for v in mod]
+    log_k = [np.log(k + 1) for k in xrange(len(log_values))]
+    with open('convergence_test.dat', 'wb') as f:
+        pickle.dump(log_k, f)
+        pickle.dump(log_values, f)
 
 
 def test():
@@ -116,21 +130,34 @@ def test():
     label = vlpa.clustering_infomap(g)
     label2 = vlpa.basic_vlpa(g)
     print('nmi of vlpa is', nmi(real_label, label2))
-    print('nmi of vlpa is', community.modularity(label2, g))
+    print('modularity of vlpa is', community.modularity(label2, g))
     print('nmi of infomap is', nmi(real_label, label))
-    print('nmi of infomap is ', community.modularity(label, g))
-
-# a = community.best_partition(G)
-# b = vlpa.clusting_infomap(G)
-# c = vlpa.vlpa(G)
-# d = vlpa.lpa(G)
-# print(community.modularity(a, G), community.modularity(b, G), community.modularity(c, G), community.modularity(d, G))
-# for node in G.nodes():
-#     G.node[node]['community'] = community_label[node]
-#
-# nx.write_gexf(G, 'lfr0.5.gexf')
+    print('modularity of infomap is ', community.modularity(label, g))
 
 
-# compare()
+def method_adjust():
+    # x = [0.0, 0.1]
+    mod_a = []
+    mod_b = []
+    mod_c = []
+    g, real_label = inputdata.read_lfr(0.6)
+    opt_value = community.modularity(real_label, g)
+    mod_a = vlpa.convergence_vlpa(g, gamma=0.5, mod='both')
+    mod_b = vlpa.convergence_vlpa(g, gamma=0.5, mod='nothing')
+    mod_c = vlpa.convergence_vlpa(g, gamma=0.5, mod='normalize')
+    mod_d = vlpa.convergence_vlpa(g, gamma=0.9, mod='normalize')
+    log_a_values = [np.log(abs(v - opt_value)) for v in mod_a]
+    log_b_values = [np.log(abs(v - opt_value)) for v in mod_b]
+    log_c_values = [np.log(abs(v - opt_value)) for v in mod_c]
+    log_d_values = [np.log(abs(v - opt_value)) for v in mod_d]
+
+    with open('method_adjust.dat', 'wb') as f:
+        pickle.dump(log_a_values, f)
+        pickle.dump(log_b_values, f)
+        pickle.dump(log_c_values, f)
+        pickle.dump(log_d_values, f)
+
+
+method_adjust()
 
 test()

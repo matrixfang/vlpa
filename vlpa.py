@@ -49,7 +49,7 @@ class vlabel(dict):
             scaled[k] = num * self[k]
         return scaled
 
-    def dot(self,other):
+    def dot(self, other):
         result = 0.0
         for node in self:
             if node in other:
@@ -75,7 +75,8 @@ class vlabel(dict):
 
     def main(self):
         # get the key respect to maximum value in the vlabel
-        # if there are some key has the same maximum value then randomly choose one
+        # if there are some key has the same maximum value then randomly
+        # choose one
         max_value = max(self.values())
         mained = vlabel()
         keys = [k for k in self if self[k] == max_value]
@@ -152,8 +153,7 @@ class vlabels(dict):
         error = 0.0
         for node in self:
             error += self[node].error(other[node])
-        return error/len(self)
-
+        return error / len(self)
 
     def sum(self):
         result = vlabel()
@@ -195,7 +195,7 @@ def basic_vlpa(g):
     vecs = vlabels()
     vecs.initialization(g)
     # propagation step
-    n = float(len(g.nodes()))
+    # n = float(len(g.nodes()))
     m = float(len(g.edges()))
     pos = g.degree()
 
@@ -210,7 +210,6 @@ def basic_vlpa(g):
         cond_three = abs((m_new - m_old) / m_new) < 0.01
         cond_four = step > 5
         return cond_three & cond_four
-
 
     for step in xrange(100):
         vec_all = vlabel()
@@ -249,13 +248,96 @@ def basic_vlpa(g):
             vecs_all[node] = vec_all * g.degree(node)
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-        vecs_new = (vecs * 0.4+ vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
 
         if estimate_stop_condition():
             break
         vecs = vecs_new
 
     return vecs.to_labels()
+
+
+def convergence_vlpa(g, gamma=0.5, mod='nothing'):
+    # initiazaiton
+    modularity = []
+
+    vecs = vlabels()
+    vecs.initialization(g)
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    if mod == 'nothing':
+        def grad(vecs):
+            return vecs
+    elif mod == 'normalize':
+        def grad(vecs):
+            return vecs.normalize(n=2)
+    elif mod == 'both':
+        def grad(vecs):
+            return vecs.nlarg(pos).normalize(n=2)
+    else:
+        raise("Unexist module, the mod can only be in [nothing, normalize, both]")
+
+    def estimate_change_condition():
+        cond_one = abs(vecs.error(vecs_new)) < 0.01
+        cond_two = step > 10
+        return cond_one & cond_two
+
+    def estimate_stop_condition():
+        m_new = community.modularity(vecs_new.to_labels(), g)
+        m_old = community.modularity(vecs.to_labels(), g)
+        cond_three = abs((m_new - m_old) / m_new) < 0.01
+        cond_four = step > 5
+        return cond_three & cond_four
+
+    t1 = time.time()
+    for step in xrange(100):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = grad(vecs_grad + vecs_all)
+        vecs_new = (vecs * (1 - gamma) + vecs_grad * gamma).nlarg(pos).normalize(n=2)
+
+        if estimate_change_condition():
+            break
+        vecs = vecs_new
+        modularity.append(community.modularity(vecs.to_labels(), g))
+
+    pos = {}.fromkeys(g.nodes(), 1)
+    for step in xrange(10):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = grad(vecs_grad + vecs_all)
+        vecs_new = (vecs * (1 - gamma) + vecs_grad * gamma).nlarg(pos).normalize(n=2)
+
+        if estimate_stop_condition():
+            break
+        vecs = vecs_new
+    t2 = time.time()
+    print('Time of module of ' + mod + ' is ', t2 - t1)
+    return modularity
 
 
 def method(posshrink=False, withshrink=False, gamma=0.5):
@@ -328,10 +410,9 @@ def method(posshrink=False, withshrink=False, gamma=0.5):
         vecs = vlabels()
         vecs.initialization(g)
         # propagation step
-        n = float(len(g.nodes()))
+        # n = float(len(g.nodes()))
         m = float(len(g.edges()))
         pos = g.degree()
-        k_ave = float(sum(g.degree().values())) / n
         for step in xrange(60):
 
             # if step > 50:
@@ -388,10 +469,9 @@ def method(posshrink=False, withshrink=False, gamma=0.5):
 
         return vecs.to_labels()
 
-    if posshrink==True:
+    if posshrink is True:
         return vlpa_pos_shrink
-
-    elif posshrink == False:
+    elif posshrink is False:
         return vlpa_no_pos_shrink
 
     # if withshrink==True:
@@ -440,13 +520,12 @@ def clustering_infomap(G):
     """
     "transform G to g"
     list = G.nodes()
+
     def n2i(node):
         return list.index(node)
     g1 = nx.Graph()
     for e in G.edges():
         g1.add_edge(n2i(e[0]), n2i(e[1]))
-
-
 
     infomapWrapper = infomap.Infomap("--two-level")
 
@@ -455,7 +534,7 @@ def clustering_infomap(G):
         infomapWrapper.addLink(*e)
 
     print("Find communities with Infomap...")
-    infomapWrapper.run();
+    infomapWrapper.run()
 
     tree = infomapWrapper.tree
 
@@ -465,11 +544,9 @@ def clustering_infomap(G):
     for node in tree.leafIter():
         communities[node.originalLeafIndex] = node.moduleIndex()
     real_commuinties = {}
-
-    #transform to original commuinties
+    # transform to original commuinties
     for i in communities:
         real_commuinties[list[i]] = communities[i]
-
 
     return real_commuinties
 
