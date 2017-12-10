@@ -127,37 +127,49 @@ def convergence_test():
 
 def test():
     g, real_label = inputdata.read_lfr(0.6)
-    label = vlpa.clustering_infomap(g)
-    label2 = vlpa.basic_vlpa(g)
-    print('nmi of vlpa is', nmi(real_label, label2))
-    print('modularity of vlpa is', community.modularity(label2, g))
-    print('nmi of infomap is', nmi(real_label, label))
-    print('modularity of infomap is ', community.modularity(label, g))
+    #label = vlpa.clustering_infomap(g)
+    #label2 = vlpa.basic_vlpa(g)
+    label3 = vlpa.ada_vlpa(g)
+    print
+    #print('nmi of vlpa is', nmi(real_label, label2))
+    #print('modularity of vlpa is', community.modularity(label2, g))
+    #print('nmi of infomap is', nmi(real_label, label))
+    #print('modularity of infomap is ', community.modularity(label, g))
 
 
 def method_adjust():
     # x = [0.0, 0.1]
-    mod_a = []
-    mod_b = []
-    mod_c = []
     g, real_label = inputdata.read_lfr(0.6)
     opt_value = community.modularity(real_label, g)
     mod_a = vlpa.convergence_vlpa(g, gamma=0.5, mod='both')
     mod_b = vlpa.convergence_vlpa(g, gamma=0.5, mod='nothing')
+    mod_e = vlpa.convergence_vlpa(g, gamma=0.9, mod='nothing')
     mod_c = vlpa.convergence_vlpa(g, gamma=0.5, mod='normalize')
     mod_d = vlpa.convergence_vlpa(g, gamma=0.9, mod='normalize')
+    #mod_f = vlpa.ada_vlpa(g)
+
     log_a_values = [np.log(abs(v - opt_value)) for v in mod_a]
     log_b_values = [np.log(abs(v - opt_value)) for v in mod_b]
     log_c_values = [np.log(abs(v - opt_value)) for v in mod_c]
     log_d_values = [np.log(abs(v - opt_value)) for v in mod_d]
+    log_e_values = [np.log(abs(v - opt_value)) for v in mod_e]
+    #log_f_values = [np.log(abs(v - opt_value)) for v in mod_f]
 
     with open('method_adjust.dat', 'wb') as f:
         pickle.dump(log_a_values, f)
         pickle.dump(log_b_values, f)
         pickle.dump(log_c_values, f)
         pickle.dump(log_d_values, f)
+        pickle.dump(log_e_values, f)
+        #pickle.dump(log_f_values, f)
+
+
+def test_copy():
+    t1 = 1
+    t2 = 2
+    t1 = t2
+    t1 += 3
+    print(t1, t2)
 
 
 method_adjust()
-
-test()

@@ -48,16 +48,21 @@ def method_adjust_plot():
         log_b_values = pickle.load(f)
         log_c_values = pickle.load(f)
         log_d_values = pickle.load(f)
+        log_e_values = pickle.load(f)
+        #log_f_values = pickle.load(f)
     plt.figure(1)
     log_a = [np.log(v + 1) for v in range(len(log_a_values))]
     log_b = [np.log(v + 1) for v in range(len(log_b_values))]
     log_c = [np.log(v + 1) for v in range(len(log_c_values))]
     log_d = [np.log(v + 1) for v in range(len(log_d_values))]
+    log_e = [np.log(v + 1) for v in range(len(log_e_values))]
+    #log_f = [np.log(v + 1) for v in range(len(log_f_values))]
     plt.plot(log_a, log_a_values, label='both')
     plt.plot(log_b, log_b_values, label='nothing')
     plt.plot(log_c, log_c_values, label='normalize')
     plt.plot(log_d, log_d_values, label='normalize0.9')
-
+    plt.plot(log_e, log_e_values, label='nothing0.9')
+    #plt.plot(log_f, log_f_values, label='ada')
     plt.legend()
     plt.savefig('update strategy.png')
 
