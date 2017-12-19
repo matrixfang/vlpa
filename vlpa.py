@@ -262,7 +262,7 @@ def basic_vlpa(g):
     return vecs.to_labels()
 
 
-def convergence_vlpa(g, gamma=0.5, mod='nothing'):
+def convergence_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='True'):
     # initiazaiton
     modularity = []
 
@@ -283,6 +283,24 @@ def convergence_vlpa(g, gamma=0.5, mod='nothing'):
             return vecs.nlarg(pos).normalize(n=2)
     else:
         raise("Unexist module, the mod can only be in [nothing, normalize, both]")
+
+    if pos_shrink=='True':
+        def pos_change():
+            def num(label, p):
+                list_sorted = sorted(label, key=lambda x: label[x], reverse=True)
+                num = 0
+                value = 0.0
+                for i in list_sorted:
+                    if value < np.sqrt(p):
+                        value += (label[i]) ** 2
+                        num += 1
+                return num
+
+            for k in pos:
+                pos[k] = num(vecs[k], 0.9)
+    else:
+        def pos_change():
+            pass
 
     def estimate_change_condition():
         cond_one = abs(vecs.error(vecs_new)) < 0.01
@@ -317,6 +335,7 @@ def convergence_vlpa(g, gamma=0.5, mod='nothing'):
         # if estimate_change_condition():
         # break
         vecs = vecs_new
+        pos_change()
         modularity.append(community.modularity(vecs.to_labels(), g))
 
     pos = {}.fromkeys(g.nodes(), 1)
@@ -341,7 +360,7 @@ def convergence_vlpa(g, gamma=0.5, mod='nothing'):
             break
         vecs = vecs_new
     t2 = time.time()
-    print('Time of module of ' + mod + ' is ', t2 - t1)
+    print(mod+' '+str(gamma), 'Time %f'%(t2 - t1), 'modularity before lpa is %f'%(modularity[len(modularity)-1]),'modularity after lpa is %f'%(community.modularity(vecs.to_labels(),g)))
     return modularity
 
 
@@ -428,7 +447,7 @@ def fista_vlpa(g):
     return modularity
 
 
-def ada_vlpa(g):
+def pos_vlpa(g):
     def estimate_change_condition():
         cond_one = abs(vecs.error(vecs_new)) < 0.01
         cond_two = step > 10
@@ -441,6 +460,116 @@ def ada_vlpa(g):
         cond_four = step > 5
         return cond_three & cond_four
 
+    def change_pos():
+        def num(label, p):
+            list_sorted = sorted(label, key=lambda x: label[x], reverse=True)
+            num = 0
+            value = 0.0
+            for i in list_sorted:
+                if value < np.sqrt(p):
+                    value += (label[i]) ** 2
+                    num += 1
+            return num
+        for k in pos:
+            pos[k] = num(vecs[k], 0.9)
+    # initiazaiton
+    gamma = 0.5
+    eta = 0.
+    epsilon = 0.1
+    Eg = 1.0
+    Edelta = 1.0
+    modularity = []
+    vecs = vlabels()
+    vecs.initialization(g)
+    modularity = []
+
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+
+    time1 = time.time()
+
+    for step in xrange(100):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = vecs_grad + vecs_all  # calculate the gradient = vecs_grad
+
+        Eg = gamma * Eg + (1 - gamma) * vecs_grad.norm2()
+        coef = np.sqrt(Edelta + epsilon) / np.sqrt(Eg + epsilon)
+        vecs_delta = vecs_grad * coef
+        vecs_new = (vecs + vecs_delta).nlarg(pos).normalize(n=2)
+        Edelta = gamma * Edelta + (1 - gamma) * vecs_delta.norm2()
+
+
+        ##### iteration end #####
+        vecs = vecs_new
+        change_pos()
+        modularity.append(community.modularity(vecs.to_labels(), g))
+
+    pos = {}.fromkeys(g.nodes(), 1)
+    for step in xrange(10):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        if estimate_stop_condition():
+            break
+        vecs = vecs_new
+
+    time2 = time.time()
+    print('Time of module of pos is ', time2 - time1,modularity[len(modularity)-1])
+    return modularity
+
+
+def no_pos_vlpa(g):
+    def estimate_change_condition():
+        cond_one = abs(vecs.error(vecs_new)) < 0.01
+        cond_two = step > 10
+        return cond_one & cond_two
+
+    def estimate_stop_condition():
+        m_new = community.modularity(vecs_new.to_labels(), g)
+        m_old = community.modularity(vecs.to_labels(), g)
+        cond_three = abs((m_new - m_old) / m_new) < 0.01
+        cond_four = step > 5
+        return cond_three & cond_four
+
+    def change_pos():
+        def num(label, p):
+            list_sorted = sorted(label, key=lambda x: label[x], reverse=True)
+            num = 0
+            value = 0.0
+            for i in list_sorted:
+                if value < np.sqrt(p):
+                    value += (label[i]) ** 2
+                    num += 1
+            return num
+        for k in pos:
+            pos[k] = num(vecs[k], 0.9)
     # initiazaiton
     gamma = 0.5
     eta = 0.
@@ -481,6 +610,7 @@ def ada_vlpa(g):
         vecs_new = (vecs + vecs_delta).nlarg(pos).normalize(n=2)
         Edelta = gamma * Edelta + (1 - gamma) * vecs_delta.norm2()
 
+
         ##### iteration end #####
         vecs = vecs_new
         modularity.append(community.modularity(vecs.to_labels(), g))
@@ -508,8 +638,54 @@ def ada_vlpa(g):
         vecs = vecs_new
 
     time2 = time.time()
-    print('Time of module of ata is ', time2 - time1)
+    print('Time of module of no pos is ', time2 - time1)
     return modularity
+
+
+def information_vlpa(g):
+    # initiazaiton
+
+    vecs = vlabels()
+    vecs.initialization(g)
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+
+    def estimate_change_condition():
+        cond_one = abs(vecs.error(vecs_new)) < 0.01
+        cond_two = step > 10
+        return cond_one & cond_two
+
+    def estimate_stop_condition():
+        m_new = community.modularity(vecs_new.to_labels(), g)
+        m_old = community.modularity(vecs.to_labels(), g)
+        cond_three = abs((m_new - m_old) / m_new) < 0.01
+        cond_four = step > 5
+        return cond_three & cond_four
+
+    for step in xrange(60):
+        vec_all = vlabel()
+        for node in g.nodes():
+            vec_all = vec_all + vecs[node] * g.degree(node)
+        vec_all = vec_all * (- 1.0 / (2 * m))
+
+        vecs_grad = vlabels()
+        for node in g.nodes():
+            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+        vecs_all = vlabels()
+        for node in g.nodes():
+            vecs_all[node] = vec_all * g.degree(node)
+
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+
+        if estimate_change_condition():
+            break
+        vecs = vecs_new
+
+    return vecs
 
 
 def method(posshrink=False, withshrink=False, gamma=0.5):

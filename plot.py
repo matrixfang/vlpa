@@ -49,22 +49,31 @@ def method_adjust_plot():
         log_c_values = pickle.load(f)
         log_d_values = pickle.load(f)
         log_e_values = pickle.load(f)
-        #log_f_values = pickle.load(f)
+        log_f_values = pickle.load(f)
     plt.figure(1)
-    log_a = [np.log(v + 1) for v in range(len(log_a_values))]
-    log_b = [np.log(v + 1) for v in range(len(log_b_values))]
-    log_c = [np.log(v + 1) for v in range(len(log_c_values))]
-    log_d = [np.log(v + 1) for v in range(len(log_d_values))]
-    log_e = [np.log(v + 1) for v in range(len(log_e_values))]
-    #log_f = [np.log(v + 1) for v in range(len(log_f_values))]
-    plt.plot(log_a, log_a_values, label='both')
-    plt.plot(log_b, log_b_values, label='nothing')
-    plt.plot(log_c, log_c_values, label='normalize')
-    plt.plot(log_d, log_d_values, label='normalize0.9')
-    plt.plot(log_e, log_e_values, label='nothing0.9')
-    #plt.plot(log_f, log_f_values, label='ada')
+    log_a = [np.log10(v + 1) for v in range(len(log_a_values))]
+    log_b = [np.log10(v + 1) for v in range(len(log_b_values))]
+    log_c = [np.log10(v + 1) for v in range(len(log_c_values))]
+    log_d = [np.log10(v + 1) for v in range(len(log_d_values))]
+    log_e = [np.log10(v + 1) for v in range(len(log_e_values))]
+    log_f = [np.log10(v + 1) for v in range(len(log_f_values))]
+    plt.plot(log_a, log_a_values, label='both 0.5')
+    plt.plot(log_b, log_b_values, label='both 0.9')
+    plt.plot(log_c, log_c_values, label='nothing 0.5')
+    plt.plot(log_d, log_d_values, label='nothing 0.9')
+    plt.plot(log_e, log_e_values, label='normalize 0.5')
+    plt.plot(log_f, log_f_values, label='normalize 0.9')
     plt.legend()
     plt.savefig('update strategy.png')
 
 
-method_adjust_plot()
+def plot():
+    x = [1,2,3,4,5]
+    y = [3,5,6,7,9]
+    z = [6,7,10,12,13]
+    plt.plot(x,y,label='line a')
+    plt.plot(x,z, label='line b')
+    plt.style
+    plt.savefig('example.eps')
+
+plot()

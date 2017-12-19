@@ -142,18 +142,19 @@ def method_adjust():
     g, real_label = inputdata.read_lfr(0.6)
     opt_value = community.modularity(real_label, g)
     mod_a = vlpa.convergence_vlpa(g, gamma=0.5, mod='both')
-    mod_b = vlpa.convergence_vlpa(g, gamma=0.5, mod='nothing')
-    mod_e = vlpa.convergence_vlpa(g, gamma=0.9, mod='nothing')
-    mod_c = vlpa.convergence_vlpa(g, gamma=0.5, mod='normalize')
-    mod_d = vlpa.convergence_vlpa(g, gamma=0.9, mod='normalize')
-    #mod_f = vlpa.ada_vlpa(g)
+    mod_b = vlpa.convergence_vlpa(g, gamma=0.9, mod='both')
+    mod_c = vlpa.convergence_vlpa(g, gamma=0.5, mod='nothing')
+    mod_d = vlpa.convergence_vlpa(g, gamma=0.9, mod='nothing')
+    mod_e = vlpa.convergence_vlpa(g, gamma=0.5, mod='normalize')
+    mod_f = vlpa.convergence_vlpa(g, gamma=0.9, mod='normalize')
 
-    log_a_values = [np.log(abs(v - opt_value)) for v in mod_a]
-    log_b_values = [np.log(abs(v - opt_value)) for v in mod_b]
-    log_c_values = [np.log(abs(v - opt_value)) for v in mod_c]
-    log_d_values = [np.log(abs(v - opt_value)) for v in mod_d]
-    log_e_values = [np.log(abs(v - opt_value)) for v in mod_e]
-    #log_f_values = [np.log(abs(v - opt_value)) for v in mod_f]
+
+    log_a_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_a]
+    log_b_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_b]
+    log_c_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_c]
+    log_d_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_d]
+    log_e_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_e]
+    log_f_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_f]
 
     with open('method_adjust.dat', 'wb') as f:
         pickle.dump(log_a_values, f)
@@ -161,15 +162,54 @@ def method_adjust():
         pickle.dump(log_c_values, f)
         pickle.dump(log_d_values, f)
         pickle.dump(log_e_values, f)
-        #pickle.dump(log_f_values, f)
+        pickle.dump(log_f_values, f)
 
 
-def test_copy():
-    t1 = 1
-    t2 = 2
-    t1 = t2
-    t1 += 3
-    print(t1, t2)
+def pos_adjust():
+    g, real_label = inputdata.read_lfr(0.6)
+    vecs = vlpa.information_vlpa(g)
+    with open('pos_adjust.dat', 'wb') as f:
+        pickle.dump(vecs, f)
+
+def pos_plot():
+    def num(label,p):
+        list_sorted = sorted(label,key=lambda x:label[x],reverse=True)
+        num = 0
+        value = 0.0
+        for i in list_sorted:
+            if value < np.sqrt(p):
+                value += (label[i])**2
+                num += 1
+        return num
+
+    with open('pos_adjust.dat', 'r') as f:
+        vecs = pickle.load(f)
+
+    degree = []
+    pos_num = []
+    for k in vecs:
+        degree.append(len(vecs[k]))
+        pos_num.append(num(vecs[k], 0.90))
+        print(len(vecs[k]), num(vecs[k], 0.90))
+    plt.figure(1)
+    plt.scatter(degree, pos_num)
+    plt.savefig('num_shrink.png')
+    plt.show()
 
 
-method_adjust()
+def pos_change_adjust():
+    g, real_label = inputdata.read_lfr(0.6)
+    a = vlpa.no_pos_vlpa(g)
+    b = vlpa.pos_vlpa(g)
+    print(a)
+    print(b)
+    print(community.modularity(real_label,g))
+
+
+def test_print():
+    a = 'dfafa'
+    b = 0.1
+    c = 1
+    print(a+str(c),'dfadf %s '%(str(b)))
+
+pos_plot()
