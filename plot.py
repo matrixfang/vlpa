@@ -67,13 +67,28 @@ def method_adjust_plot():
     plt.savefig('update strategy.png')
 
 
-def plot():
-    x = [1,2,3,4,5]
-    y = [3,5,6,7,9]
-    z = [6,7,10,12,13]
-    plt.plot(x,y,label='line a')
-    plt.plot(x,z, label='line b')
-    plt.style
-    plt.savefig('example.eps')
+def fit_plot(x,y):
+    print(x)
+    print(y)
+    fit = np.polyfit(x, y, 1)
+    fit_function = np.poly1d(fit)
+    k_str = "%.4f" % fit[0]
+    print(k_str)
+    num=len(x)
+    xant = x[num/2]
+    yant = fit_function(x[num/2])
+    plt.figure(1)
+    plt.plot(x, fit_function(x), '--', label='fitting line')
+    plt.plot(x, y, 's')
+    plt.annotate(r'$slope =$' + k_str, xy=(xant, yant), xytext=(xant + 0.1, yant + 0.1),
+                 fontsize=12, arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"))
 
-plot()
+def fit_plot_all():
+    with open('convergence_test.dat', 'r') as f:
+        log_k = pickle.load(f)
+        log_values = pickle.load(f)
+    x = np.array(log_k[-20:])
+    y = np.array(log_values[-20:])
+    fit_plot(x,y)
+    plt.show()
+    pass

@@ -2,13 +2,19 @@ import networkx as nx
 import numpy as np
 import scipy as sp
 import draw
+import cProfile
+
+
 import pickle
+
 import inputdata
 import matplotlib.pyplot as plt
 import vlpa
 from sklearn.metrics.cluster import normalized_mutual_info_score
 import community
+import plot
 import matplotlib as mpl
+import time
 mpl.use("Agg")
 
 
@@ -206,10 +212,67 @@ def pos_change_adjust():
     print(community.modularity(real_label,g))
 
 
-def test_print():
-    a = 'dfafa'
-    b = 0.1
-    c = 1
-    print(a+str(c),'dfadf %s '%(str(b)))
 
-pos_plot()
+def final_compare():
+    nmi_a = []
+    nmi_b = []
+    nmi_c = []
+    nmi_d = []
+    nmi_e = []
+    nmi_f = []
+    # x = [0.0, 0.1]
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        a = vlpa.vlpa(g)
+        b = vlpa.lpa(g)
+        c = vlpa.clustering_infomap(g)
+        d = community.best_partition(g)
+        e = vlpa.basic_vlpa(g)
+        #e = vlpa.final_vlpa(g, gamma=0.9, mod='normalize', pos_shrink='True')
+        f = vlpa.nonmodel(g)
+        nmi_a.append(nmi(real_label, a))
+        nmi_b.append(nmi(real_label, b))
+        nmi_c.append(nmi(real_label, c))
+        nmi_d.append(nmi(real_label, d))
+        nmi_e.append(nmi(real_label, e))
+        nmi_f.append(nmi(real_label, f))
+    # plot
+    plt.figure(1)
+    plt.plot(x, nmi_a, label='vlpa')
+    plt.plot(x, nmi_b, label='lpa')
+    plt.plot(x, nmi_c, label='infomap')
+    plt.plot(x, nmi_d, label='louvain')
+    plt.plot(x, nmi_e, label='final_vlpa')
+    plt.plot(x, nmi_f, label='nonmodel')
+    plt.legend(loc='upper left')
+    plt.savefig('final_compare.png')
+
+
+def time_test(method):
+    x = [200, 400, 800, 1200, 1600]
+    plus = []
+    times = []
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        t1 = time.time()
+        result = method(g)
+        t2 = time.time()
+        plus.append(np.log10(len(g.edges())))
+        times.append(np.log10(abs(t2-t1)))
+    return plus, times
+
+
+def set_compare():
+    x,y = time_test(vlpa.time_vlpa)
+    plot.fit_plot(x,y)
+    plt.savefig('set_compare.png')
+
+
+def timeit_profile():
+    g, real_label = inputdata.read_lfr(2000)
+    vlpa.time_vlpa(g)
+
+
+
+cProfile.run("timeit_profile()", filename="result.out")
