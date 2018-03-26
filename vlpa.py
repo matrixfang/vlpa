@@ -2,13 +2,16 @@ import networkx as nx
 import numpy as np
 import heapq
 from random import choice
+import random
 import sys
 import time
 import matplotlib.pyplot as plt
 import community
 sys.path.append('../infomap/examples/python/infomap')
 import infomap
+import copy
 import inputdata
+from collections import namedtuple
 
 
 class vlabel(dict):
@@ -20,10 +23,7 @@ class vlabel(dict):
 
     def copy(self):
         # make a copy of a vlabel
-        result = vlabel()
-        for k in self:
-            result[k] = self[k]
-        return result
+        return copy.copy(self)
 
     def __add__(self, other):
         # add other to self by sparsity adding
@@ -59,6 +59,11 @@ class vlabel(dict):
             scaled[k] = num * self[k]
         return scaled
 
+    def __imul__(self, num):
+        for k in self:
+            self[k] = num * self[k]
+        return self
+
     def dot(self, other):
         result = 0.0
         for node in self:
@@ -72,6 +77,13 @@ class vlabel(dict):
     def error(self, other):
         error = self - other
         return error.norm() / other.norm()
+
+    def nonnegative(self):
+        new_vector = vlabel()
+        for key in self:
+            if self[key]>0:
+                new_vector[key] = self[key]
+        return new_vector
 
     def nlarg(self, n):
         # get first n largest items
@@ -94,6 +106,17 @@ class vlabel(dict):
         mained = vlabel()
         mained[key] = 1.0
         return mained
+
+    def close2label(self,gamma):
+        keys = self.all_max_keys()
+        v = vlabel()
+        for key in self:
+            if key in keys:
+                v[key] = max(self[key] + gamma, 1.0)
+            elif self[key]>=gamma:
+                v[key] = self[key] - gamma
+
+        return v.normalize(n=2)
 
     def all_max_keys(self):
         max_value = max(self.values())
@@ -141,6 +164,10 @@ class vlabels(dict):
         for node in g.nodes():
             self[node] = vlabel({neigh: 1.0 / g.degree(node) for neigh in g.neighbors(node)})
 
+    def initialization2(self, g):
+        for node in g.nodes():
+            self[node] = vlabel({node:1.0})
+
     def print_all(self):
         print(self)
 
@@ -173,6 +200,11 @@ class vlabels(dict):
 
     def shrink(self, v):
         return vlabels({node: self[node].shrink(v) for node in self})
+
+    def close2labels(self,gamma):
+        for node in self:
+            self[node].close2label(gamma)
+        return self
 
     def nlarg(self, pos):
         if set(self.keys()) != set(pos.keys()):
@@ -213,7 +245,10 @@ def vlpa(g):
     m = float(len(g.edges()))
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(15):
+    for step in xrange(50+60):
+        if step==50:
+            pos={}.fromkeys(g.nodes(),1)
+
         vec_all = vecs.sum()
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -227,6 +262,35 @@ def vlpa(g):
         vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize()
 
     return vecs.to_labels()
+
+
+def vmod(g, vecs):
+    m = len(g.edges())
+    vec_all = vlabel()
+    for node in g.nodes():
+        vec_all += vecs[node] * (g.degree(node))
+    vec_all *= -1.0 / (2 * m)
+
+    vecs_grad = vlabels()
+    for node in g.nodes():
+        vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+
+    vm = 0.0
+    for node in g.nodes():
+        vm+= vecs_grad[node].dot(vecs[node]) + vec_all.dot(vecs[node] * g.degree(node))
+
+    return vm/(2*m)
+
+
+def rms(x):
+    """
+    root mean squared function
+
+    """
+    return np.sqrt(x + 0.0001)
+
+
+algorithm_output = namedtuple('algorithm_output',['algorithm','time','labels','vmods','mods','before_mod','after_mod'])
 
 
 def basic_vlpa(g):
@@ -266,7 +330,7 @@ def basic_vlpa(g):
             vecs_all[node] = vec_all * g.degree(node)
 
         vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
+        vecs_new = (vecs * 0.8 + vecs_grad * 0.2).nlarg(pos).normalize(n=2)
 
         if estimate_change_condition():
             break
@@ -400,7 +464,7 @@ def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
     return vecs.to_labels()
 
 
-def convergence_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
+def convergence_vlpa(g, gamma=1.0, mod='nothing', pos_shrink='True'):
     # initiazaiton
     modularity = []
 
@@ -435,7 +499,7 @@ def convergence_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
                 return num
 
             for k in pos:
-                pos[k] = num(vecs[k], 0.9)
+                pos[k] = num(vecs[k], 0.95)
     else:
         def pos_change():
             pass
@@ -502,16 +566,24 @@ def convergence_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
     return modularity
 
 
-def time_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
+def time_vlpa(g, gamma=0.6, mod='nothing', pos_shrink='Fasle', if_renorm ='False'):
     # try to get the best time complixity
     # initiazaiton
-    modularity = []
+    mods = []
+    vmods = []
     vecs = vlabels()
     vecs.initialization(g)
     # propagation step
     # n = float(len(g.nodes()))
     m = float(len(g.edges()))
     pos = g.degree()
+    if if_renorm ==False:
+        def renormalize():
+            pass
+    else:
+        def renormalize():
+            vecs.close2labels(0.02)
+
     if mod == 'nothing':
         def grad(vecs):
             return vecs
@@ -569,8 +641,8 @@ def time_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
     for step in xrange(100):
         vec_all = vlabel()
         for node in g.nodes():
-            vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0 / (2 * m))
+            vec_all += vecs[node] * g.degree(node)
+        vec_all *= (- 1.0 / (2 * m))
         vecs_grad = vlabels()
         for node in g.nodes():
             vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
@@ -585,15 +657,18 @@ def time_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
         # if estimate_change_condition():
         # break
         vecs = vecs_new
+        renormalize()
         pos_change()
-        modularity.append(community.modularity(vecs.to_labels(), g))
+        mods.append(community.modularity(vecs.to_labels(), g))
+        vmods.append(vmod(g,vecs))
+    before_mod = community.modularity(vecs.to_labels(),g)
 
     pos = {}.fromkeys(g.nodes(), 1)
     for step in xrange(10):
         vec_all = vlabel()
         for node in g.nodes():
             vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = (vec_all * (- 1.0 / (2 * m)))
+        vec_all *= (- 1.0 / (2 * m))
 
         vecs_grad = vlabels()
         for node in g.nodes():
@@ -609,9 +684,170 @@ def time_vlpa(g, gamma=0.9, mod='nothing', pos_shrink='False'):
         if estimate_stop_condition():
             break
         vecs = vecs_new
+    after_mod = community.modularity(vecs.to_labels(), g)
     t2 = time.time()
-    print(mod+' '+str(gamma), 'Time %f'%(t2 - t1), 'modularity before lpa is %f'%(modularity[len(modularity)-1]),'modularity after lpa is %f'%(community.modularity(vecs.to_labels(),g)))
-    return t2-t1
+
+    """
+        output result
+
+    """
+
+    result = algorithm_output(algorithm="time_vlpa", time=t2 - t1, labels=vecs.to_labels(),
+                              vmods=vmods, mods=mods, before_mod=before_mod, after_mod=after_mod)
+
+    """
+    print result
+    """
+    print(mod+str(gamma), 'Time %f' % (t2 - t1), 'modularity before is %f' % (before_mod),
+          "modularity after is %f" % (after_mod))
+
+    return result
+
+
+def louvain_vlpa(g, gamma=0.5):
+    # try to get the best time complixity
+    # initiazaiton
+    t1 = time.time()
+    mods = []
+    vmods = []
+    vecs = vlabels()
+    vecs_best = vlabels()
+    vmod_best = 0.0
+    vecs.initialization(g)
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    cgrad = vlabel()
+    for node in g.nodes():
+        cgrad += vecs[node] * g.degree(node)
+    cgrad *= (- 1.0 / (2 * m))
+    diff_cgrad = vlabel()
+    shuffled_nodes = g.nodes()
+
+    for step in xrange(100 + 10 + 10):
+        random.shuffle(shuffled_nodes) # shuffle the node list
+        # update one node vector label
+        if step==100:
+            before_mod = community.modularity(vecs.to_labels(), g)
+            pos = {}.fromkeys(g.nodes(), 1)
+        elif step%20==10:
+            pos = {}.fromkeys(g.nodes(), 1)
+        elif step%20==0:
+            pos = g.degree()
+
+        for node in shuffled_nodes:
+            pgrad = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+            cgrad += diff_cgrad
+            grad = cgrad * g.degree(node) + pgrad
+            update = (grad * gamma + vecs[node]*(1-gamma)).nlarg(pos[node]).normalize(n=2)
+            diff_cgrad = (update - vecs[node]) * (- float(g.degree(node))/(2 * m))
+            vecs[node] = update
+
+        vmod_vecs = vmod(g,vecs)
+        vmods.append(vmod_vecs)
+        mods.append(community.modularity(vecs.to_labels(), g))
+        if vmod_vecs>vmod_best:
+            vmod_best = vmod_vecs
+            vecs_best = vecs
+
+    vecs = vecs_best
+    t2 = time.time()
+    after_mod = community.modularity(vecs.to_labels(), g)
+
+    """
+    output result
+
+    """
+
+    result = algorithm_output(algorithm="louvian_vlpa",time=t2-t1,labels=vecs.to_labels(),
+                              vmods=vmods, mods=mods, before_mod=before_mod,after_mod=after_mod)
+
+    """
+    print result
+    """
+
+    print(str(gamma), 'Time %f' % (t2 - t1), 'modularity before is %f' % (before_mod),
+          "modularity after is %f" % (after_mod))
+
+    return result
+
+
+def vlpa_sgd_ada(g, gamma=0.5):
+    # try to get the best time complixity
+    # initiazaiton
+    t1 = time.time()
+    mods = []
+    vmods = []
+    vecs = vlabels()
+    vecs_best = vlabels()
+    vmod_best = 0.0
+    vecs.initialization(g)
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    cgrad = vlabel()
+    for node in g.nodes():
+        cgrad += vecs[node] * g.degree(node)
+    cgrad *= (- 1.0 / (2 * m))
+    diff_cgrad = vlabel()
+    shuffled_nodes = g.nodes()
+    eg = {}.fromkeys(g.nodes(),1.0)
+    ev = {}.fromkeys(g.nodes(),1.0)
+
+    for step in xrange(100 + 10 + 10):
+        random.shuffle(shuffled_nodes) # shuffle the node list
+        # update one node vector label
+        if step==100:
+            before_mod = community.modularity(vecs.to_labels(), g)
+            pos = {}.fromkeys(g.nodes(), 1)
+        elif step%10==5:
+            pos = {}.fromkeys(g.nodes(), 1)
+        elif step%10==0:
+            pos = g.degree()
+
+
+        for node in shuffled_nodes:
+            pgrad = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+            cgrad += diff_cgrad
+            grad = cgrad * g.degree(node) + pgrad
+            eg[node]=gamma * eg[node] + (1 - gamma) * grad.norm(n=2)**2
+            learning_rate = rms(ev[node])/rms(eg[node])
+            #print(learning_rate)
+            delta_v = grad * learning_rate
+            update = (delta_v + vecs[node]).nlarg(pos[node]).normalize(n=2)
+            diff_cgrad = (update - vecs[node]) * (- float(g.degree(node))/(2 * m))
+            ev[node] = gamma * ev[node] + (1 - gamma) *(delta_v).norm(n=2)**2
+            vecs[node] = update
+
+        vmod_vecs = vmod(g,vecs)
+        vmods.append(vmod_vecs)
+        mods.append(community.modularity(vecs.to_labels(), g))
+        if vmod_vecs>vmod_best:
+            vmod_best = vmod_vecs
+            vecs_best = vecs
+
+    vecs = vecs_best
+    t2 = time.time()
+    after_mod = community.modularity(vecs.to_labels(), g)
+
+    """
+    output result
+
+    """
+
+    result = algorithm_output(algorithm="louvian_vlpa",time=t2-t1,labels=vecs.to_labels(),
+                              vmods=vmods, mods=mods, before_mod=before_mod,after_mod=after_mod)
+
+    """
+    print result
+    """
+
+    print(str(gamma), 'Time %f' % (t2 - t1), 'modularity before is %f' % (before_mod),
+          "modularity after is %f" % (after_mod))
+
+    return result
 
 
 def pos_vlpa(g):
@@ -852,6 +1088,8 @@ def information_vlpa(g):
             break
         vecs = vecs_new
 
+
+
     return vecs
 
 
@@ -1044,16 +1282,16 @@ def clustering_infomap(G):
 
     infomapWrapper = infomap.Infomap("--two-level")
 
-    print("Building Infomap network from a NetworkX graph...")
+    #print("Building Infomap network from a NetworkX graph...")
     for e in g1.edges_iter():
         infomapWrapper.addLink(*e)
 
-    print("Find communities with Infomap...")
+    #print("Find communities with Infomap...")
     infomapWrapper.run()
 
     tree = infomapWrapper.tree
 
-    print("Found %d top modules with codelength: %f" % (tree.numTopModules(), tree.codelength()))
+    #print("Found %d top modules with codelength: %f" % (tree.numTopModules(), tree.codelength()))
 
     communities = {}
     for node in tree.leafIter():
@@ -1063,6 +1301,8 @@ def clustering_infomap(G):
     for i in communities:
         real_commuinties[list[i]] = communities[i]
 
+    print('modularity by infomap is %f' % (community.modularity(real_commuinties, G)))
+
     return real_commuinties
 
 
@@ -1070,6 +1310,95 @@ def nonmodel(g):
     return {}.fromkeys(g.nodes(), 1)
 
 
-######## test_method #####
+def louvain(g):
+    t1 = time.time()
+    labels = community.best_partition(g)
+    t2 = time.time()
+    before_mod = None
+    after_mod = community.modularity(labels,g)
+
+    """
+        output result
+
+    """
+
+    result = algorithm_output(algorithm="louvian", time=t2 - t1, labels=labels,
+                              vmods=None, mods=None, before_mod=before_mod, after_mod=after_mod)
+
+    """
+    print result
+    """
+
+    print('louvian', 'Time %f' % (t2 - t1), 'modularity before is',
+          "modularity after is %f" % (after_mod))
+
+    return result
 
 
+def louvain_vlpa_opt(g, gamma=0.5):
+    # try to get the best time complixity
+    # initiazaiton
+    t1 = time.time()
+    mods = []
+    vmods = []
+    vecs = vlabels()
+    vecs_best = vlabels()
+    vmod_best = 0.0
+    vecs.initialization(g)
+    # propagation step
+    # n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    cgrad = vlabel()
+    for node in g.nodes():
+        cgrad += vecs[node] * g.degree(node)
+    cgrad *= (- 1.0 / (2 * m))
+    diff_cgrad = vlabel()
+    shuffled_nodes = g.nodes()
+
+    for step in xrange(100 + 10 + 10):
+        random.shuffle(shuffled_nodes) # shuffle the node list
+        # update one node vector label
+        if step==100:
+            before_mod = community.modularity(vecs.to_labels(), g)
+            pos = {}.fromkeys(g.nodes(), 1)
+        # elif step%20==10:
+        #     pos = {}.fromkeys(g.nodes(), 1)
+        # elif step%20==0:
+        #     pos = g.degree()
+
+        for node in shuffled_nodes:
+            pgrad = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+            cgrad += diff_cgrad
+            grad = cgrad * g.degree(node) + pgrad
+            update = (grad * gamma + vecs[node]*(1-gamma)).nlarg(pos[node]).normalize(n=2)
+            diff_cgrad = (update - vecs[node]) * (- float(g.degree(node))/(2 * m))
+            vecs[node] = update.close2label(0.02).normalize(n=2)
+
+        vmod_vecs = vmod(g,vecs)
+        vmods.append(vmod_vecs)
+        mods.append(community.modularity(vecs.to_labels(), g))
+        if vmod_vecs>vmod_best:
+            vmod_best = vmod_vecs
+            vecs_best = vecs
+
+    vecs = vecs_best
+    t2 = time.time()
+    after_mod = community.modularity(vecs.to_labels(), g)
+
+    """
+    output result
+
+    """
+
+    result = algorithm_output(algorithm="louvian_vlpa",time=t2-t1,labels=vecs.to_labels(),
+                              vmods=vmods, mods=mods, before_mod=before_mod,after_mod=after_mod)
+
+    """
+    print result
+    """
+
+    print(str(gamma), 'Time %f' % (t2 - t1), 'modularity before is %f' % (before_mod),
+          "modularity after is %f" % (after_mod))
+
+    return result
