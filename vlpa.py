@@ -293,72 +293,33 @@ def rms(x):
 algorithm_output = namedtuple('algorithm_output',['algorithm','time','labels','vmods','mods','before_mod','after_mod'])
 
 
-def basic_vlpa(g):
+def fixed_pos_vlpa(g,k):
     # initiazaiton
-
     vecs = vlabels()
-    vecs.initialization(g)
+    vecs.initialization2(g)
     # propagation step
-    # n = float(len(g.nodes()))
+    n = float(len(g.nodes()))
     m = float(len(g.edges()))
-    pos = g.degree()
+    pos = {}.fromkeys(g.nodes(),k)
+    k_ave = float(sum(g.degree().values())) / n
+    for step in xrange(80+10):
+        if step==80:
+            pos={}.fromkeys(g.nodes(),1)
 
-    def estimate_change_condition():
-        cond_one = abs(vecs.error(vecs_new)) < 0.01
-        cond_two = step > 10
-        return cond_one & cond_two
-
-    def estimate_stop_condition():
-        m_new = community.modularity(vecs_new.to_labels(), g)
-        m_old = community.modularity(vecs.to_labels(), g)
-        cond_three = abs((m_new - m_old) / m_new) < 0.01
-        cond_four = step > 5
-        return cond_three & cond_four
-
-    for step in xrange(100):
-        vec_all = vlabel()
-        for node in g.nodes():
-            vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0 / (2 * m))
-
+        vec_all = vecs.sum()
         vecs_grad = vlabels()
         for node in g.nodes():
             vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
 
         vecs_all = vlabels()
         for node in g.nodes():
-            vecs_all[node] = vec_all * g.degree(node)
+            vecs_all[node] = vec_all * (-k_ave * k_ave / (2 * m))
 
-        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-        vecs_new = (vecs * 0.8 + vecs_grad * 0.2).nlarg(pos).normalize(n=2)
-
-        if estimate_change_condition():
-            break
-        vecs = vecs_new
-
-    pos = {}.fromkeys(g.nodes(), 1)
-    for step in xrange(10):
-        vec_all = vlabel()
-        for node in g.nodes():
-            vec_all = vec_all + vecs[node] * g.degree(node)
-        vec_all = vec_all * (- 1.0 / (2 * m))
-
-        vecs_grad = vlabels()
-        for node in g.nodes():
-            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
-
-        vecs_all = vlabels()
-        for node in g.nodes():
-            vecs_all[node] = vec_all * g.degree(node)
-
-        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize(n=2)
-        vecs_new = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize(n=2)
-
-        if estimate_stop_condition():
-            break
-        vecs = vecs_new
+        vecs_grad = (vecs_grad + vecs_all).nlarg(pos).normalize()
+        vecs = (vecs * 0.4 + vecs_grad * 0.6).nlarg(pos).normalize()
 
     return vecs.to_labels()
+
 
 
 def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
