@@ -245,8 +245,8 @@ def vlpa(g):
     m = float(len(g.edges()))
     pos = g.degree()
     k_ave = float(sum(g.degree().values())) / n
-    for step in xrange(50+60):
-        if step==50:
+    for step in xrange(80+10):
+        if step==80:
             pos={}.fromkeys(g.nodes(),1)
 
         vec_all = vecs.sum()

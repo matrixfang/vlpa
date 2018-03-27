@@ -271,27 +271,35 @@ def louvain_compare_plot():
 
 
 def renorm_compare():
-    nmi_a = []
-    nmi_b = []
-    nmi_c = []
-    nmi_d = []
-    nmi_e = []
-    nmi_f = []
-    #x = [0.1,0.2]
-    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
+    mod_a = []
+    mod_b = []
+    mod_c = []
+    mod_d = []
+    mod_e = []
+    mod_f = []
+    mod_s = []
+    x = [0.1]
+    #x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
         a = vlpa.vlpa(g)
-        b = vlpa.time_vlpa(g,if_renorm='False').labels
-        c = vlpa.time_vlpa(g,if_renorm='True').labels
+        b = vlpa.lpa(g)
+        c = vlpa.clustering_infomap(g)
+        d = vlpa.louvain(g).labels
+        e = vlpa.time_vlpa(g,if_renorm='False').labels
+        f = vlpa.time_vlpa(g,if_renorm='True').labels
         # f = vlpa.vlpa3(g)
-        nmi_a.append(nmi(real_label, a))
-        nmi_b.append(nmi(real_label, b))
-        nmi_c.append(nmi(real_label, c))
+        mod_a.append(community.modularity(a, g))
+        mod_b.append(community.modularity(b, g))
+        mod_c.append(community.modularity(c, g))
+        mod_d.append(community.modularity(d, g))
+        mod_e.append(community.modularity(e, g))
+        mod_f.append(community.modularity(f, g))
+        mod_s.append(community.modularity((real_label, g)))
         # nmi_f.append(nmi(real_label, f))
     # plot
-    compare_result = [x,nmi_a,nmi_b,nmi_c,]
+    compare_result = [x,mod_a,mod_b,mod_c,mod_d,mod_e,mod_f,mod_s]
     with open('renorm_compare.dat', 'wb') as f:
         pickle.dump(compare_result, f)
 
@@ -304,6 +312,8 @@ def renorm_compare_plot():
     plt.plot(result[0], result[2], label='no_renorm')
     plt.plot(result[0], result[3], label='renorm')
     # plt.plot(x, nmi_f, label='vlpa3')
+    print(result[2])
+    print(result[3])
     plt.legend(loc='lower left')
     plt.xlabel('\mu')
     plt.ylabel('NMI')
@@ -473,4 +483,4 @@ def louvian_test():
 #cProfile.run("timeit_profile()", filename="result.out")
 #louvain_compare()
 renorm_compare()
-renorm_compare_plot()
+
