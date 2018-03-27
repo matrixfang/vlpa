@@ -3,9 +3,8 @@
   <component name="ChangeListManager">
     <list default="true" id="0f52c723-172b-4d3e-9d60-ec4dc66618d6" name="Default" comment="">
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/renorm_compare.png" afterPath="$PROJECT_DIR$/renorm_compare.png" />
+      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
       <change type="MODIFICATION" beforePath="$PROJECT_DIR$/main.py" afterPath="$PROJECT_DIR$/main.py" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/renorm_compare.dat" afterPath="$PROJECT_DIR$/renorm_compare.dat" />
-      <change type="MODIFICATION" beforePath="$PROJECT_DIR$/vlpa.py" afterPath="$PROJECT_DIR$/vlpa.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -84,8 +83,8 @@
       <file leaf-file-name="main.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/main.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="185">
-              <caret line="301" column="65" lean-forward="false" selection-start-line="301" selection-start-column="65" selection-end-line="301" selection-end-column="65" />
+            <state relative-caret-position="172">
+              <caret line="281" column="4" lean-forward="false" selection-start-line="281" selection-start-column="4" selection-end-line="281" selection-end-column="4" />
               <folding>
                 <element signature="e#0#21#0" expanded="true" />
                 <element signature="e#645#1451#0" expanded="false" />
@@ -109,13 +108,6 @@
                 <element signature="e#13776#14337#0" expanded="false" />
               </folding>
             </state>
-          </provider>
-        </entry>
-      </file>
-      <file leaf-file-name="renorm_compare.png" pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/renorm_compare.png">
-          <provider selected="true" editor-type-id="images">
-            <state />
           </provider>
         </entry>
       </file>
@@ -1092,8 +1084,8 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/main.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="185">
-          <caret line="301" column="65" lean-forward="false" selection-start-line="301" selection-start-column="65" selection-end-line="301" selection-end-column="65" />
+        <state relative-caret-position="172">
+          <caret line="281" column="4" lean-forward="false" selection-start-line="281" selection-start-column="4" selection-end-line="281" selection-end-column="4" />
           <folding>
             <element signature="e#0#21#0" expanded="true" />
             <element signature="e#645#1451#0" expanded="false" />

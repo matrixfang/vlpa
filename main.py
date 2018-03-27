@@ -278,8 +278,8 @@ def renorm_compare():
     mod_e = []
     mod_f = []
     mod_s = []
-    x = [0.1]
-    #x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
+    #x = [0.1]
+    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
@@ -482,5 +482,5 @@ def louvian_test():
     pass
 #cProfile.run("timeit_profile()", filename="result.out")
 #louvain_compare()
-renorm_compare()
+renorm_compare_plot()
 
