@@ -295,7 +295,7 @@ def renorm_compare():
         mod_d.append(community.modularity(d, g))
         mod_e.append(community.modularity(e, g))
         mod_f.append(community.modularity(f, g))
-        mod_s.append(community.modularity((real_label, g)))
+        mod_s.append(community.modularity(real_label, g))
         # nmi_f.append(nmi(real_label, f))
     # plot
     compare_result = [x,mod_a,mod_b,mod_c,mod_d,mod_e,mod_f,mod_s]
@@ -328,8 +328,8 @@ def several_idea_compare():
     mod_e = []
     mod_f = []
     mod_s = []
-    #x = [0.1]
-    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
+    x = [0.1]
+    #x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
@@ -337,8 +337,8 @@ def several_idea_compare():
         b = vlpa.lpa(g)
         c = vlpa.clustering_infomap(g)
         d = vlpa.louvain(g).labels
-        e = vlpa.fixed_pos_vlpavlpa(g,5)
-        f = vlpa.fixed_pos_vlpavlpa(g,10)
+        e = vlpa.fixed_pos_vlpa(g,5)
+        f = vlpa.fixed_pos_vlpa(g,10)
         # f = vlpa.vlpa3(g)
         mod_a.append(community.modularity(a, g))
         mod_b.append(community.modularity(b, g))
@@ -350,12 +350,12 @@ def several_idea_compare():
         # nmi_f.append(nmi(real_label, f))
     # plot
     compare_result = [x,mod_a,mod_b,mod_c,mod_d,mod_e,mod_f,mod_s]
-    with open('renorm_compare.dat', 'wb') as f:
+    with open('several_idea_compare.dat', 'wb') as f:
         pickle.dump(compare_result, f)
 
 
 def several_idea_compare_plot():
-    with open('renorm_compare.dat', 'r') as f:
+    with open('several_idea_compare.dat', 'r') as f:
         result = pickle.load(f)
     plt.figure(1)
     plt.plot(result[0], result[1], label='vlpa')
@@ -530,8 +530,30 @@ def louvian_test():
     plt.close()
     convergence_rate_plot({0: result1.mods, 1: result2.mods, 2: result3.mods}, opt_value)
     pass
+
+def just_test():
+    """
+    just test any algorithm
+    :return:
+    """
+    g, real_label = inputdata.read_lfr(0.6)
+    result1 = vlpa.louvian_vlpa_opt(g, gamma=0.2)
+    result2 = vlpa.louvian_vlpa_opt(g, gamma=0.5)
+    result3 = vlpa.louvian_vlpa_opt(g, gamma=0.7)
+    opt_value = community.modularity(real_label, g)
+
+    print(opt_value)
+    print('louvian method', vlpa.louvian(g).after_mod)
+    print(result1.vmods)
+
+    print(set(real_label.values()))
+    draw.draw_group(g, real_label, result2.labels)
+    plt.show()
+    plt.close()
+    convergence_rate_plot({0: result1.mods, 1: result2.mods, 2: result3.mods}, opt_value)
+    pass
+    pass
 #cProfile.run("timeit_profile()", filename="result.out")
 #louvain_compare()
 renorm_compare()
-renorm_compare_plot()
 
