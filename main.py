@@ -308,8 +308,12 @@ def renorm_compare_plot():
         result = pickle.load(f)
     plt.figure(1)
     plt.plot(result[0], result[1], label='vlpa')
-    plt.plot(result[0], result[2], label='no_renorm')
-    plt.plot(result[0], result[3], label='renorm')
+    plt.plot(result[0], result[2], label='lpa')
+    plt.plot(result[0], result[3], label='infomap')
+    plt.plot(result[0], result[4], label='louvain')
+    #plt.plot(result[0], result[5], label='no renorm')
+    plt.plot(result[0], result[6], label='renorm')
+    plt.plot(result[0], result[6], label='standard')
     # plt.plot(x, nmi_f, label='vlpa3')
     print(result[0])
     print(result[3])
@@ -346,7 +350,7 @@ def several_idea_compare():
         mod_d.append(community.modularity(d, g))
         mod_e.append(community.modularity(e, g))
         mod_f.append(community.modularity(f, g))
-        mod_s.append(community.modularity((real_label, g)))
+        mod_s.append(community.modularity(real_label, g))
         # nmi_f.append(nmi(real_label, f))
     # plot
     compare_result = [x,mod_a,mod_b,mod_c,mod_d,mod_e,mod_f,mod_s]
@@ -423,7 +427,7 @@ def time_test(method):
 
 
 def set_compare():
-    x,y = time_test(vlpa.clustering_infomap)
+    x,y = time_test(vlpa.fixed_pos_louvain_vlpa)
     plot.fit_plot(x,y)
     plt.savefig('set_compare.png')
 
@@ -468,27 +472,6 @@ def plot_graph(g, label):
     plt.close()
     #plt.savefig("network"+str(num)+".eps",rasterized=True,dpi=300)
 
-
-def convergence_rate_plot(input,opt_value):
-    step = []
-    mod1 = []
-    mod2 = []
-    best_value = []
-    for i in xrange(len(input[0])):
-        step.append(i)
-        mod1.append(input[0][i])
-        mod2.append(input[1][i])
-        best_value.append(opt_value)
-    plt.figure()
-    plt.plot(step,input[0],label='$\gamma=0.2$')
-    plt.plot(step,input[1],label='$\gamma=0.5$')
-    plt.plot(step,input[2],label='$\gamma=0.7$')
-    plt.plot(step,best_value)
-    plt.legend()
-    plt.show()
-    plt.close()
-    pass
-
 def modularity_test(method):
     x = [200, 400, 800, 1200, 1600]
     mod_real = []
@@ -531,29 +514,68 @@ def louvian_test():
     convergence_rate_plot({0: result1.mods, 1: result2.mods, 2: result3.mods}, opt_value)
     pass
 
-def just_test():
+def convergence_rate_plot(input,opt_value):
+    max_number = 0
+    plt.figure()
+    for key in input:
+        mods = input[key]
+        x = range(len(mods))
+        if len(mods)>max_number:
+            max_number = len(mods)
+        plt.plot(x,mods,label=key)
+
+    standard_values = []
+    for i in xrange(max_number):
+        standard_values.append(opt_value)
+
+    plt.plot(range(max_number),standard_values,label='best')
+    plt.legend()
+    plt.show()
+    plt.close()
+
+def just_modularity_test():
     """
     just test any algorithm
     :return:
     """
-    g, real_label = inputdata.read_lfr(0.6)
-    result1 = vlpa.louvian_vlpa_opt(g, gamma=0.2)
-    result2 = vlpa.louvian_vlpa_opt(g, gamma=0.5)
-    result3 = vlpa.louvian_vlpa_opt(g, gamma=0.7)
+    g, real_label = inputdata.read_lfr(200)
+
+    #result1 = vlpa.fixed_pos_vlpa(g,4)
+    #result2 = vlpa.louvain_vlpa(g)
+    #result3 = vlpa.vlpa(g)
+    #result4 = vlpa.louvain(g)
+    #result5 = vlpa.clustering_infomap(g)
+    #result6 = vlpa.lpa(g)
+    #result7 = vlpa.fixed_pos_louvain_vlpa(g,4)
+    result8 = vlpa.fixed_pos_sgdsgd_vlpa(g,5)
+
     opt_value = community.modularity(real_label, g)
 
     print(opt_value)
-    print('louvian method', vlpa.louvian(g).after_mod)
-    print(result1.vmods)
+    #print(result1.mod)
+    #draw.draw_group(g, real_label, result.labels)
 
-    print(set(real_label.values()))
-    draw.draw_group(g, real_label, result2.labels)
-    plt.show()
-    plt.close()
-    convergence_rate_plot({0: result1.mods, 1: result2.mods, 2: result3.mods}, opt_value)
+    #plt.show()
+    #plt.close()
+    convergence_rate_plot({'mods':result8.mods,'vmods':result8.vmods}, opt_value)
     pass
+
+def just_speed_test():
+    g, real_label = inputdata.read_lfr(0.9)
+
+    plot_dic = {}
+    result2 = vlpa.real_final_agg_louvain(g,5)
+    result1 = vlpa.fixed_pos_louvain_vlpa(g,5)
+    result3 = vlpa.final_agg_louvain(g,5)
+
+    #result6 = vlpa.final_vlpa(g)
+    result4 = vlpa.louvain(g)
+    opt_value = community.modularity(result4.labels, g)
+    #opt_value = vlpa.louvain(g).mod
+    plot_dict = {result2.algorithm:result2.mods,result1.algorithm:result1.mods,result3.algorithm:result3.mods}
+    convergence_rate_plot(plot_dict, opt_value)
     pass
 #cProfile.run("timeit_profile()", filename="result.out")
 #louvain_compare()
-renorm_compare()
+just_speed_test()
 
