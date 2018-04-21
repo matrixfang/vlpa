@@ -42,46 +42,37 @@ def convergence_plot():
     plt.savefig('convergence_plot.png')
 
 
-def method_adjust_plot():
-    with open('method_adjust.dat', 'r') as f:
-        log_a_values = pickle.load(f)
-        log_b_values = pickle.load(f)
-        log_c_values = pickle.load(f)
-        log_d_values = pickle.load(f)
-        log_e_values = pickle.load(f)
-        log_f_values = pickle.load(f)
-    plt.figure(1)
-    log_a = [np.log10(v + 1) for v in range(len(log_a_values))]
-    log_b = [np.log10(v + 1) for v in range(len(log_b_values))]
-    log_c = [np.log10(v + 1) for v in range(len(log_c_values))]
-    log_d = [np.log10(v + 1) for v in range(len(log_d_values))]
-    log_e = [np.log10(v + 1) for v in range(len(log_e_values))]
-    log_f = [np.log10(v + 1) for v in range(len(log_f_values))]
-    plt.plot(log_a, log_a_values, label='both 0.5')
-    plt.plot(log_b, log_b_values, label='both 0.9')
-    plt.plot(log_c, log_c_values, label='nothing 0.5')
-    plt.plot(log_d, log_d_values, label='nothing 0.9')
-    plt.plot(log_e, log_e_values, label='normalize 0.5')
-    plt.plot(log_f, log_f_values, label='normalize 0.9')
-    plt.legend()
-    plt.savefig('update strategy.png')
 
 
-def fit_plot(x,y):
+
+def fit_plot(x,y,plots='True',upmove=0):
     print(x)
     print(y)
+    if plots=='False':
+        def plots():
+            pass
+    elif plots=='True':
+        def plots():
+            plt.plot(x, y, 's')
+    else:
+        raise('plots Must be Boolean')
+
     fit = np.polyfit(x, y, 1)
+    fit[1] = fit[1] + upmove
+    print(fit)
     fit_function = np.poly1d(fit)
     k_str = "%.4f" % fit[0]
     print(k_str)
     num=len(x)
     xant = x[num/2]
     yant = fit_function(x[num/2])
+
     plt.figure(1)
+    plots()
     plt.plot(x, fit_function(x), '--', label='fitting line')
-    plt.plot(x, y, 's')
     plt.annotate(r'$slope =$' + k_str, xy=(xant, yant), xytext=(xant + 0.1, yant + 0.1),
                  fontsize=12, arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"))
+    return fit[0]
 
 def fit_plot_all():
     with open('convergence_test.dat', 'r') as f:

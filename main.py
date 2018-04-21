@@ -40,9 +40,9 @@ def first_compare():
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
-        a = vlpa.vlpa(g)
-        b = vlpa.lpa(g)
-        c = vlpa.clustering_infomap(g)
+        a = vlpa.first_vlpa(g).labels
+        b = vlpa.lpa(g).labels
+        c = vlpa.clustering_infomap(g).labels
         d = vlpa.louvain(g).labels
         # e = vlpa.vlpa2(g)
         # f = vlpa.vlpa3(g)
@@ -74,7 +74,7 @@ def first_compare_plot():
     plt.savefig('first_compare.png')
     pass
 
-
+"""
 def shrink_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     m1 = vlpa.method(withshrink=True)
@@ -129,66 +129,46 @@ def pos_compare():
         pickle.dump(x, f)
         pickle.dump(nmi_a, f)
         pickle.dump(nmi_b, f)
-
+"""
 
 def convergence_test():
-    g, real_label = inputdata.read_lfr(0.6)
-    mod = vlpa.convergence_vlpa(g, gamma=0.6, mod='both')
-    opt_value = community.modularity(real_label, g)
-    log_values = [np.log(abs(v - opt_value)) for v in mod]
-    log_k = [np.log(k + 1) for k in xrange(len(log_values))]
-    with open('convergence_test.dat', 'wb') as f:
-        pickle.dump(log_k, f)
-        pickle.dump(log_values, f)
-
-
-def test():
-    g, real_label = inputdata.read_lfr(0.6)
-    #label = vlpa.clustering_infomap(g)
-    #label2 = vlpa.basic_vlpa(g)
-    label3 = vlpa.ada_vlpa(g)
-    print
-    #print('nmi of vlpa is', nmi(real_label, label2))
-    #print('modularity of vlpa is', community.modularity(label2, g))
-    #print('nmi of infomap is', nmi(real_label, label))
-    #print('modularity of infomap is ', community.modularity(label, g))
-
-
-def method_adjust():
     # x = [0.0, 0.1]
-    g, real_label = inputdata.read_lfr(0.6)
+    g, real_label = inputdata.read_lfr(0.5)
     opt_value = community.modularity(real_label, g)
-    mod_a = vlpa.convergence_vlpa(g, gamma=0.5, mod='both')
-    mod_b = vlpa.convergence_vlpa(g, gamma=0.9, mod='both')
-    mod_c = vlpa.convergence_vlpa(g, gamma=0.5, mod='nothing')
-    mod_d = vlpa.convergence_vlpa(g, gamma=0.9, mod='nothing')
-    mod_e = vlpa.convergence_vlpa(g, gamma=0.5, mod='normalize')
-    mod_f = vlpa.convergence_vlpa(g, gamma=0.9, mod='normalize')
+    result1 = vlpa.convergence_vlpa(g, gamma=0.1, mod='nothing')
+    result2 = vlpa.convergence_vlpa(g, gamma=0.2, mod='nothing')
+    result3 = vlpa.convergence_vlpa(g, gamma=0.4, mod='nothing')
+    result4 = vlpa.convergence_vlpa(g, gamma=0.6, mod='nothing')
+    result5 = vlpa.convergence_vlpa(g, gamma=0.8, mod='nothing')
+    result6 = vlpa.convergence_vlpa(g, gamma=1.0, mod='nothing')
+    results = [result1,result2,result3,result4,result5,result6]
+
+    with open('convergence_test.dat', 'wb') as f:
+        pickle.dump(results, f)
 
 
-    log_a_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_a]
-    log_b_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_b]
-    log_c_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_c]
-    log_d_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_d]
-    log_e_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_e]
-    log_f_values = [np.log10(abs((v - opt_value)/opt_value)) for v in mod_f]
+def convergence_test_plot():
+    with open('convergence_test.dat', 'r') as f:
+        results = pickle.load(f)
 
-    with open('method_adjust.dat', 'wb') as f:
-        pickle.dump(log_a_values, f)
-        pickle.dump(log_b_values, f)
-        pickle.dump(log_c_values, f)
-        pickle.dump(log_d_values, f)
-        pickle.dump(log_e_values, f)
-        pickle.dump(log_f_values, f)
+    input  ={}
+    for result in results:
+        input[result.algorithm] = result.mods
 
 
-def pos_adjust():
+    opt_value = result.mod
+    convergence_gamma_plot(input,opt_value)
+
+
+def useful_dim_test():
     g, real_label = inputdata.read_lfr(0.6)
-    vecs = vlpa.information_vlpa(g)
-    with open('pos_adjust.dat', 'wb') as f:
+    vecs = vlpa.dim_test_vlpa(g)
+    with open('useful_dim_test.dat', 'wb') as f:
         pickle.dump(vecs, f)
+    pass
 
-def pos_plot():
+
+def useful_dim_test_plot():
     def num(label,p):
         list_sorted = sorted(label,key=lambda x:label[x],reverse=True)
         num = 0
@@ -199,28 +179,48 @@ def pos_plot():
                 num += 1
         return num
 
-    with open('pos_adjust.dat', 'r') as f:
+    with open('useful_dim_test.dat', 'r') as f:
         vecs = pickle.load(f)
+        degree = []
+        dims_num = []
+        for k in vecs:
+            degree.append(len(vecs[k]))
+            dims_num.append(num(vecs[k], 0.95))
+            print(len(vecs[k]), num(vecs[k], 0.95))
+        plt.figure()
+        plt.subplot(121)
+        plt.hist(degree)
+        plt.xlabel("Degree of node")
+        plt.ylabel("Frequency")
+        plt.subplot(122)
+        plt.hist(dims_num)
+        plt.xlabel(' "Useful" dimensions of node')
+        plt.savefig('useful_dims.png')
+        plt.show()
 
-    degree = []
-    pos_num = []
-    for k in vecs:
-        degree.append(len(vecs[k]))
-        pos_num.append(num(vecs[k], 0.90))
-        print(len(vecs[k]), num(vecs[k], 0.90))
-    plt.figure(1)
-    plt.scatter(degree, pos_num)
-    plt.savefig('num_shrink.png')
-    plt.show()
+
+def form_modularity_compare():
+    data = {'vlpa':[],'louvain':[],'louvain_vlpa':[],'sgd_vlpa':[]}
+    for x in [0.5,0.6,0.7,0.8, 0.9]:
+        g, real_label = inputdata.read_lfr(x)
+        result1 = vlpa.first_vlpa(g)
+        result2 = vlpa.louvain(g)
+        result3 = vlpa.louvain_vlpa(g)
+        result4 = vlpa.fixed_pos_louvain_vlpa(g)
+        data['vlpa'].append(result1.mod)
+        data['louvain'].append(result2.mod)
+        data['louvain_vlpa'].append(result3.mod)
+        data['sgd_vlpa'].append(result4.mod)
+    with open('form_modularity_compare.dat', 'wb') as f:
+        pickle.dump(data, f)
 
 
-def pos_change_adjust():
-    g, real_label = inputdata.read_lfr(0.6)
-    a = vlpa.no_pos_vlpa(g)
-    b = vlpa.pos_vlpa(g)
-    print(a)
-    print(b)
-    print(community.modularity(real_label,g))
+def form_modularity_compare_plot():
+    with open('form_modularity_compare.dat', 'r') as f:
+        data = pickle.load(f)
+    for key in data:
+        print(key)
+        print(data[key])
 
 
 def louvain_compare():
@@ -235,7 +235,7 @@ def louvain_compare():
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
-        a = vlpa.vlpa(g)
+        a = vlpa.first_vlpa(g)
         b = vlpa.lpa(g)
         c = vlpa.clustering_infomap(g)
         d = vlpa.louvain(g).labels
@@ -264,64 +264,94 @@ def louvain_compare_plot():
     plt.plot(result[0], result[5], label='louvian_vlpa')
     # plt.plot(x, nmi_f, label='vlpa3')
     plt.legend(loc='lower left')
-    plt.xlabel('\mu')
+    plt.xlabel('$\mu$')
     plt.ylabel('NMI')
     plt.savefig('louvian_compare.png')
     pass
 
 
-def renorm_compare():
-    mod_a = []
-    mod_b = []
-    mod_c = []
-    mod_d = []
-    mod_e = []
-    mod_f = []
-    mod_s = []
-    #x = [0.1]
-    x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8,0.9]
+def modularity_compare():
+    x = [0.5, 0.6, 0.7, 0.8, 0.9]
+    mod1 = []
+    mod2 = []
+    mod3 = []
+    mod4 = []
+    mod5 = []
     for num in x:
         g, real_label = inputdata.read_lfr(num)
-        a = vlpa.vlpa(g)
-        b = vlpa.lpa(g)
-        c = vlpa.clustering_infomap(g)
-        d = vlpa.louvain(g).labels
-        e = vlpa.time_vlpa(g,if_renorm='False').labels
-        f = vlpa.time_vlpa(g,if_renorm='True').labels
-        # f = vlpa.vlpa3(g)
-        mod_a.append(community.modularity(a, g))
-        mod_b.append(community.modularity(b, g))
-        mod_c.append(community.modularity(c, g))
-        mod_d.append(community.modularity(d, g))
-        mod_e.append(community.modularity(e, g))
-        mod_f.append(community.modularity(f, g))
-        mod_s.append(community.modularity(real_label, g))
-        # nmi_f.append(nmi(real_label, f))
+        result1 = vlpa.first_vlpa(g)
+        result2 = vlpa.lpa(g)
+        result3 = vlpa.clustering_infomap(g)
+        result4 = vlpa.louvain(g)
+
+        mod1.append(result1.mod)
+        mod2.append(result2.mod)
+        mod3.append(result3.mod)
+        mod4.append(result4.mod)
+        mod5.append(community.modularity(real_label,g))
+
     # plot
-    compare_result = [x,mod_a,mod_b,mod_c,mod_d,mod_e,mod_f,mod_s]
-    with open('renorm_compare.dat', 'wb') as f:
-        pickle.dump(compare_result, f)
-
-
-def renorm_compare_plot():
-    with open('renorm_compare.dat', 'r') as f:
-        result = pickle.load(f)
-    plt.figure(1)
-    plt.plot(result[0], result[1], label='vlpa')
-    plt.plot(result[0], result[2], label='lpa')
-    plt.plot(result[0], result[3], label='infomap')
-    plt.plot(result[0], result[4], label='louvain')
-    #plt.plot(result[0], result[5], label='no renorm')
-    plt.plot(result[0], result[6], label='renorm')
-    plt.plot(result[0], result[6], label='standard')
-    # plt.plot(x, nmi_f, label='vlpa3')
-    print(result[0])
-    print(result[3])
-    plt.legend(loc='lower left')
-    plt.xlabel('\mu')
-    plt.ylabel('NMI')
-    plt.savefig('renorm_compare.png')
+    result = [x, mod1, mod2, mod3, mod4,mod5]
+    with open('modularity_compare.dat', 'wb') as f:
+        pickle.dump(result, f)
     pass
+
+
+def modularity_compare_plot():
+    with open('modularity_compare.dat', 'r') as f:
+        result = pickle.load(f)
+        plt.figure(1)
+        plt.plot(result[0], result[1], label='vlpa')
+        plt.plot(result[0], result[2], label='lpa')
+        plt.plot(result[0], result[3], label='infomap')
+        plt.plot(result[0], result[4], label='louvain')
+        plt.plot(result[0], result[5],label='benchmark')
+
+        plt.legend(loc='lower left')
+        plt.xlabel('$\mu$')
+        plt.ylabel('Modularity')
+        plt.savefig('modularity_compare.png')
+
+
+def louvain_modularity_compare():
+    x = [0.5, 0.6, 0.7, 0.8, 0.9]
+    mod1 = []
+    mod2 = []
+    mod3 = []
+    mod4 = []
+    for num in x:
+        g, real_label = inputdata.read_lfr(num)
+        result1 = vlpa.first_vlpa(g)
+        result2 = vlpa.louvain(g)
+        result3 = vlpa.fixed_pos_louvain_vlpa(g,5)
+        benchmark = community.modularity(real_label,g)
+
+        mod1.append(nmi(result1.labels,real_label))
+        mod2.append(nmi(result2.labels,real_label))
+        mod3.append(nmi(result3.labels,real_label))
+        mod4.append(benchmark)
+
+    # plot
+    result = [x, mod1, mod2, mod3, mod4]
+    with open('louvain_modularity_compare.dat', 'wb') as f:
+        pickle.dump(result, f)
+    pass
+
+
+def louvain_modularity_compare_plot():
+    with open('louvain_modularity_compare.dat', 'r') as f:
+        result = pickle.load(f)
+        plt.figure(1)
+        plt.plot(result[0], result[1], label='vlpa')
+        plt.plot(result[0], result[2], label='louvain')
+        plt.plot(result[0], result[3],label='vlpa_sgd')
+        plt.plot(result[0], result[4], '--',label='benchmark')
+
+
+        plt.legend(loc='upper left')
+        plt.xlabel('$\mu$')
+        plt.ylabel('Modularity')
+        plt.savefig('louvain_modularity_compare.png')
 
 
 def several_idea_compare():
@@ -337,7 +367,7 @@ def several_idea_compare():
     for num in x:
         g, real_label = inputdata.read_lfr(num)
 
-        a = vlpa.vlpa(g)
+        a = vlpa.first_vlpa(g)
         b = vlpa.lpa(g)
         c = vlpa.clustering_infomap(g)
         d = vlpa.louvain(g).labels
@@ -386,7 +416,7 @@ def final_compare():
     x = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
     for num in x:
         g, real_label = inputdata.read_lfr(num)
-        a = vlpa.vlpa(g)
+        a = vlpa.first_vlpa(g)
         b = vlpa.lpa(g)
         c = vlpa.clustering_infomap(g)
         d = community.best_partition(g)
@@ -412,7 +442,7 @@ def final_compare():
 
 
 def time_test(method):
-    x = [200, 400, 800, 1200, 1600]
+    x = [200, 400, 800, 1200, 1600,2000]
     plus = []
     times = []
     for num in x:
@@ -421,25 +451,23 @@ def time_test(method):
         result = method(g)
         t2 = time.time()
         print('benchmark modularity is %f'%(community.modularity(real_label, g)))
-        plus.append(np.log10(len(g.edges())))
+        plus.append(np.log10(len(g.edges())+len(g.nodes()) ))
         times.append(np.log10(abs(t2-t1)))
     return plus, times
 
 
-def set_compare():
-    x,y = time_test(vlpa.fixed_pos_louvain_vlpa)
+def time_plot():
+    x,y = time_test(vlpa.louvain_vlpa)
     plot.fit_plot(x,y)
     plt.savefig('set_compare.png')
 
-
-def timeit_profile():
-    """
-    check running time bottleneck
-    """
-    g, real_label = inputdata.read_lfr(0.6)
-    vlpa.louvian_vlpa(g)
-    pass
-
+def time_complexity_plot():
+    data = {}
+    medthods = [vlpa.first_vlpa, vlpa.fixed_pos_vlpa, vlpa.fixed_pos_louvain_vlpa]
+    for method in methods:
+        x,y =time_test(method)
+        data[method] = [x,y]
+        pass
 
 def plot_graph(g, label):
     node_color = []
@@ -496,15 +524,15 @@ def modularity_test_plot():
     plt.close()
     pass
 
-def louvian_test():
+def louvain_test():
     g, real_label = inputdata.read_lfr(0.6)
-    result1 = vlpa.louvian_vlpa_opt(g, gamma=0.2)
-    result2 = vlpa.louvian_vlpa_opt(g, gamma=0.5)
-    result3 = vlpa.louvian_vlpa_opt(g, gamma=0.7)
+    result1 = vlpa.louvain_vlpa(g, gamma=0.2)
+    result2 = vlpa.louvain_vlpa(g, gamma=0.5)
+    result3 = vlpa.louvain_vlpa(g, gamma=0.7)
     opt_value = community.modularity(real_label, g)
 
     print(opt_value)
-    print('louvian method', vlpa.louvian(g).after_mod)
+    print('louvian method', vlpa.louvain(g).mod)
     print(result1.vmods)
 
     print(set(real_label.values()))
@@ -512,6 +540,38 @@ def louvian_test():
     plt.show()
     plt.close()
     convergence_rate_plot({0: result1.mods, 1: result2.mods, 2: result3.mods}, opt_value)
+    pass
+
+def convergence_gamma_plot(input,opt_value):
+    plt.figure()
+    eps = 0.0001
+    k_min = 0
+    key_min = None
+    for key in input:
+        mods = input[key]
+        logmods = []
+        x = np.log10(range(1,len(mods)+1))
+        for v in mods:
+            logmods.append(np.log10(abs(v - opt_value)+eps))
+        plt.plot(x, logmods, label=key)
+        fit = np.polyfit(x[10:30],logmods[10:30],1)
+        if fit[0]<k_min:
+            k_min = fit[0]
+            key_min = key
+        else:
+            pass
+    print(k_min)
+    plot.fit_plot(x[10:30], logmods[10:30], upmove=0.1)
+    logmods = []
+    for v in input[key_min]:
+        logmods.append(np.log10(abs(v - opt_value) + eps))
+
+    plot.fit_plot(x[10:30],logmods[10:30], upmove=-0.1)
+
+
+    plt.legend()
+    plt.savefig('convergence_plot.png')
+    plt.close()
     pass
 
 def convergence_rate_plot(input,opt_value):
@@ -538,7 +598,8 @@ def just_modularity_test():
     just test any algorithm
     :return:
     """
-    g, real_label = inputdata.read_lfr(200)
+    g, real_label = inputdata.read_lfr(2000)
+    #g = nx.erdos_renyi_graph(1000,0.02)
 
     #result1 = vlpa.fixed_pos_vlpa(g,4)
     #result2 = vlpa.louvain_vlpa(g)
@@ -547,11 +608,18 @@ def just_modularity_test():
     #result5 = vlpa.clustering_infomap(g)
     #result6 = vlpa.lpa(g)
     #result7 = vlpa.fixed_pos_louvain_vlpa(g,4)
-    result8 = vlpa.fixed_pos_sgdsgd_vlpa(g,5)
+    result8 = vlpa.fixed_pos_louvain_vlpa(g,gamma=1.0)
 
-    opt_value = community.modularity(real_label, g)
+    result = vlpa.louvain(g)
 
+    opt_value = community.modularity(result.labels, g)
+    print(result.labels)
+    print(set(result8.labels.values()))
     print(opt_value)
+
+    print(len(set(result.labels.values())),len(set(result8.labels.values())))
+
+
     #print(result1.mod)
     #draw.draw_group(g, real_label, result.labels)
 
@@ -561,21 +629,51 @@ def just_modularity_test():
     pass
 
 def just_speed_test():
-    g, real_label = inputdata.read_lfr(0.9)
-
-    plot_dic = {}
-    result2 = vlpa.real_final_agg_louvain(g,5)
-    result1 = vlpa.fixed_pos_louvain_vlpa(g,5)
-    result3 = vlpa.final_agg_louvain(g,5)
-
+    g, real_label = inputdata.read_lfr(0.7)
+    # result2 = vlpa.real_final_agg_louvain(g,5)
+    # result1 = vlpa.fixed_pos_louvain_vlpa(g,5)
+    # result3 = vlpa.final_agg_louvain(g,5)
     #result6 = vlpa.final_vlpa(g)
-    result4 = vlpa.louvain(g)
+    result2 = vlpa.convergence_vlpa(g, gamma=0.2, mod='nothing')
+    result3 = vlpa.convergence_vlpa(g, gamma=0.4, mod='nothing')
+    result4 = vlpa.convergence_vlpa(g, gamma=0.6, mod='nothing')
+    result5 = vlpa.convergence_vlpa(g, gamma=0.8, mod='nothing')
+    result6 = vlpa.convergence_vlpa(g, gamma=1.0, mod='nothing')
     opt_value = community.modularity(result4.labels, g)
     #opt_value = vlpa.louvain(g).mod
-    plot_dict = {result2.algorithm:result2.mods,result1.algorithm:result1.mods,result3.algorithm:result3.mods}
+    plot_dict = {result2.algorithm:result2.mods,result3.algorithm:result3.mods,
+                 result4.algorithm:result4.mods,result5.algorithm:result5.mods,
+                 result6.algorithm:result6.mods}
     convergence_rate_plot(plot_dict, opt_value)
     pass
-#cProfile.run("timeit_profile()", filename="result.out")
-#louvain_compare()
-just_speed_test()
 
+def temporal_test():
+    g, real_label = inputdata.read_lfr(1000)
+    # result2 = vlpa.real_final_agg_louvain(g,5)
+    # result1 = vlpa.fixed_pos_louvain_vlpa(g,5)
+    # result3 = vlpa.final_agg_louvain(g,5)
+    #result6 = vlpa.final_vlpa(g)
+    #result2 = vlpa.mixed_method(g)
+     #result3 = vlpa.fixed_pos_louvain_vlpa_dot(g)
+    result1 = vlpa.fixed_pos_louvain_vlpa(g)
+    result3 = vlpa.fixed_pos_louvain_vlpa_dot(g)
+    result2 = vlpa.random_vlpa(g)
+    result4 = vlpa.louvain(g)
+
+    opt_value = community.modularity(result4.labels, g)
+    #opt_value = vlpa.louvain(g).mod
+    print(set(real_label.values()))
+    #print(set(result2.labels.values()))
+    print(set(result1.labels.values()))
+    print(set(result4.labels.values()))
+
+    plot_dict = {result1.algorithm:result1.mods,result2.algorithm:result2.mods}
+    convergence_rate_plot(plot_dict, opt_value)
+    pass
+
+def run_method(method):
+    g,real_label = inputdata.read_lfr(0.9)
+    method(g,ifrecord=False)
+    pass
+
+temporal_test()
