@@ -27,6 +27,8 @@ def nmi(labels_real, labels):
         list_real.append(labels_real[node])
     return normalized_mutual_info_score(list_cal, list_real)
 
+"""first_compare"""
+
 
 def first_compare():
     nmi_a = []
@@ -648,16 +650,16 @@ def just_speed_test():
     pass
 
 def temporal_test():
-    g, real_label = inputdata.read_lfr(1000)
+    g, real_label = inputdata.read_lfr(0.9)
     # result2 = vlpa.real_final_agg_louvain(g,5)
     # result1 = vlpa.fixed_pos_louvain_vlpa(g,5)
     # result3 = vlpa.final_agg_louvain(g,5)
     #result6 = vlpa.final_vlpa(g)
     #result2 = vlpa.mixed_method(g)
      #result3 = vlpa.fixed_pos_louvain_vlpa_dot(g)
-    result1 = vlpa.fixed_pos_louvain_vlpa(g)
-    result3 = vlpa.fixed_pos_louvain_vlpa_dot(g)
-    result2 = vlpa.random_vlpa(g)
+    result1 = vlpa.first_vlpa(g)
+    result2 = vlpa.fixed_zeronorm_vlpa(g)
+    result3 = vlpa.fixed_zeronorm_vlpa_dot(g)
     result4 = vlpa.louvain(g)
 
     opt_value = community.modularity(result4.labels, g)
@@ -667,7 +669,9 @@ def temporal_test():
     print(set(result1.labels.values()))
     print(set(result4.labels.values()))
 
-    plot_dict = {result1.algorithm:result1.mods,result2.algorithm:result2.mods}
+    plot_dict = {result1.algorithm:result1.mods,
+                 result2.algorithm: result2.mods,
+                 result3.algorithm: result3.mods}
     convergence_rate_plot(plot_dict, opt_value)
     pass
 
@@ -676,4 +680,4 @@ def run_method(method):
     method(g,ifrecord=False)
     pass
 
-temporal_test()
+first_compare()
