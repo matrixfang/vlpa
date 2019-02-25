@@ -42,10 +42,7 @@ def convergence_plot():
     plt.savefig('convergence_plot.png')
 
 
-
-
-
-def fit_plot(x,y,plots='True',upmove=0):
+def fit_plot(x,y,plots='False',upmove=0):
     print(x)
     print(y)
     if plots=='False':
@@ -69,10 +66,11 @@ def fit_plot(x,y,plots='True',upmove=0):
 
     plt.figure(1)
     plots()
-    plt.plot(x, fit_function(x), '--', label='fitting line')
+    plt.plot(x, fit_function(x), '--')
     plt.annotate(r'$slope =$' + k_str, xy=(xant, yant), xytext=(xant + 0.1, yant + 0.1),
                  fontsize=12, arrowprops=dict(arrowstyle="->", connectionstyle="arc3,rad=.2"))
     return fit[0]
+
 
 def fit_plot_all():
     with open('convergence_test.dat', 'r') as f:

@@ -2,6 +2,7 @@ import networkx as nx
 import numpy as np
 import heapq
 from random import choice
+from sklearn.metrics.cluster import normalized_mutual_info_score
 import random
 import sys
 import time
@@ -114,6 +115,38 @@ class vlabel(dict):
                 nlarged[key] = self[key]
             return nlarged
 
+    def randnlarg2(self,n,p=2):
+        if len(self)<=n:
+            return self
+
+        sum =0.0
+        dcal = {}
+        for key in self:
+            value = self[key]** p
+            sum += value
+            dcal[key] = value
+
+        rand_n_keys = []
+
+        for i in xrange(n):
+            accu = 0.0
+            rand = sum * random.random()
+
+            for key in dcal:
+                accu += dcal[key]
+                if rand>= accu:
+                    pass
+                else:
+                    rand_n_keys.append(key)
+                    break
+        result = vlabel()
+        for key in rand_n_keys:
+            if key in result:
+                result[key] += self[key]
+            else:
+                result[key] = self[key]
+        return result
+
     def randnlarg(self, n,p=2):
         sum = 0.0
         dcal = {}
@@ -153,6 +186,25 @@ class vlabel(dict):
             for key in self:
                 result[key] = np.power(normalized[key],p)
             return result.normalize(n=2)
+
+    def useful_dims(self,p):
+        keys = self.keys()
+        keys_sorted = sorted(keys, key=lambda x: self[x], reverse=True)
+        num = 0
+        value = 0.0
+        for i in keys_sorted:
+            if value < np.sqrt(p):
+                value += (self[i]) ** 2
+                num += 1
+        return num
+
+    def useful_norm(self,d):
+        keys = self.keys()
+        keys_sorted = sorted(keys, key=lambda x: self[x], reverse=True)
+        value = 0.0
+        for i in keys_sorted[0:d]:
+            value += (self[i])**2
+        return np.sqrt(value)
 
     def main(self):
         # get the key respect to maximum value in the vlabel
@@ -241,6 +293,16 @@ class vlabel(dict):
 
         return v.normalize(n=2)
 
+    def positive(self):
+        positive = vlabel()
+        for key in self:
+            if self[key]>0:
+                positive[key] = self[key]
+            else:
+                pass
+
+        return positive
+
     def all_max_keys(self):
         max_value = max(self.values())
         keys = [k for k in self if self[k] == max_value]
@@ -316,6 +378,18 @@ class vlabels(dict):
     def initialization2(self, g):
         for node in g.nodes():
             self[node] = vlabel({node:1.0})
+
+    def random_init1(self,g):
+        for node in g.nodes():
+            rand_node = choice(g.nodes())
+            self[node] =vlabel({rand_node:1.0})
+        pass
+
+    def random_init2(self,g):
+        for node in g.nodes():
+            rand_node = choice(g.neighbors(node))
+            self[node] = vlabel({rand_node: 1.0})
+
 
     def print_all(self):
         print(self)
@@ -421,6 +495,56 @@ def rms(x):
     """
     return np.sqrt(x + 0.0001)
 
+def randomball(v,radi):
+    rand0 = vlabel()  # we want rand0 to be a unit ball
+    keys = set(v.keys())
+    for key in keys:
+        rand0[key] = np.random.randn(1)[0]
+    r = random.random() ** (1.0 / len(keys))
+    rand0 = rand0.normalize(n=2) * (r * radi) ## rand0 is already a unit ball
+    rand0 += v ## move to v
+
+    return rand0
+
+def randomx(v,a,n):
+    """
+    :param v:
+    :param a:
+    :return: a vector x that (x,v)>(a,v)
+    """
+    rand0 = vlabel() # we want rand0 to be a unit ball
+    keys = set(v.keys()+a.keys())
+    for key in keys:
+        rand0[key] = np.random.randn(1)[0]
+    r = random.random()**(1.0/len(keys))
+    rand0 = (rand0.normalize(n=2)) * r ## rand0 is already a unit ball
+    b = a * (v.dot(a)/(a.norm(n=2)**2)) - v
+    rand1 = v + (rand0 * b.norm(n=2))
+    rand1.normalize(n=2)
+    for key in rand1:
+        if rand1[key]<=0:
+            rand1[key] = -rand1[key]
+    return rand1.nlarg(n=n).normalize(n=2)
+
+def randomy(v,a,n):
+    """
+    :param v:
+    :param a:
+    :return: a vector x that (x,v)>(a,v)
+    """
+    rand0 = vlabel() # we want rand0 to be a unit ball
+    keys = v.keys()
+    for key in keys:
+        rand0[key] = np.random.randn(1)[0]
+    r = random.random()**(1.0/len(keys))
+    rand0 = (rand0.normalize(n=2)) * r ## rand0 is already a unit ball
+    # b = a *(v.dot(a)/(a.norm(n=2)**2)) - v
+    rand1 = v + (rand0 * (v.norm(n=2)))
+    rand1.normalize(n=2)
+    for key in rand1:
+        if rand1[key]<=0:
+            rand1[key] = -rand1[key]
+    return rand1.nlarg(n=n).normalize(n=2)
 
 algorithm_output = namedtuple('algorithm_output',['algorithm','time','labels','mods','mod'])
 
@@ -442,45 +566,83 @@ def algorithm_result(algorithm, t2, labels, mods, modularity):
     return result
 
 
-def dim_test_vlpa(g):
+def dim_test_vlpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
     # initiazaiton
     t1 = time.time()
     vecs = vlabels()
     vecs.initialization(g)
     mods = []
-    vmods = []
-    # propagation step
     n = float(len(g.nodes()))
     m = float(len(g.edges()))
     pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
     # propagation
-    for step in xrange(80+10):
-        vec_all = vlabel()
-        for node in g.nodes():
-            vec_all += vecs[node] * g.degree(node)
-        vec_all *= (- 1.0 / (2 * m))
-        vecs_grad = vlabels()
-        for node in g.nodes():
-            vecs_grad[node] = vlabels({neigh: vecs[neigh] for neigh in g.neighbors(node)}).sum()
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
 
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
         for node in g.nodes():
-            vecs_grad[node] = vecs_grad[node].paddc(vec_all * g.degree(node))
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
 
+        return vecs, mods
 
-        vecs_grad = vecs_grad.nlarg(pos).normalize()
-        vecs = (vecs * 0.5 + vecs_grad * 0.5).nlarg(pos).normalize()
-        mods.append(community.modularity(vecs.to_labels(), g))
-        vmods.append(vmod(vecs, g))
+    vecs, mods = first_updates(250, vecs,mods,k)
 
     ## algorithm output
-    algorithm = 'vlpa'
-    modularity = mods[len(mods)-1]
+    algorithm = 'VPA'
     labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
     t2 = time.time() - t1
     ## get algorithm result
-    result = algorithm_result(algorithm, t2, labels, vmods, mods, modularity)
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
 
-    return vecs
+    return result,vecs
 
 """ basic vlpa"""
 
@@ -528,8 +690,8 @@ def first_vlpa(g,gamma =0.7,ifrecord=True):
         return vecs
 
     def first_updates(vecs,mods):
-        for step in xrange(200):
-            if step <190:
+        for step in xrange(250):
+            if step <200:
                 pos = degree
                 vecs = update_epoch(vecs, pos)
             else:
@@ -541,7 +703,7 @@ def first_vlpa(g,gamma =0.7,ifrecord=True):
     vecs, mods = first_updates(vecs, mods)
 
     ## algorithm output
-    algorithm = 'first_vlpa'
+    algorithm = 'first_vlpa' + str(gamma)
     labels = vecs.to_labels()
     modularity = community.modularity(labels, g)
     t2 = time.time() - t1
@@ -594,8 +756,8 @@ def fixed_zeronorm_vlpa(g,gamma=0.7,k=6,ifrecord=True):
         return vecs
 
     def first_updates(vecs,mods):
-        for step in xrange(200):
-            if step <190:
+        for step in xrange(250):
+            if step <200:
                 pos = {}.fromkeys(g.nodes(), k)
                 vecs = update_epoch(vecs, pos)
             else:
@@ -617,7 +779,7 @@ def fixed_zeronorm_vlpa(g,gamma=0.7,k=6,ifrecord=True):
 
 """better performance"""
 
-def sgd_vlpa(g, k=6, gamma=0.7, ifrecord=True):
+def sgd_vlpa(g, k=6, ifrecord=True):
     # try to get the best time complixity
     # decide if record mods
     if ifrecord == True:
@@ -648,8 +810,8 @@ def sgd_vlpa(g, k=6, gamma=0.7, ifrecord=True):
             pgrad = vlabel()
             for neigh in neighbors[node]:
                 pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
             pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
             if len(grad) == 0:
                 update = vecs[node]
             else:
@@ -659,16 +821,23 @@ def sgd_vlpa(g, k=6, gamma=0.7, ifrecord=True):
             vecs[node] = update
         return vecs
 
-    def first_updates(vecs,mods,k):
+
+    def first_updates(stepsize, vecs,mods,k):
         shuffled_nodes = g.nodes()
         random.shuffle(shuffled_nodes)
         cgrad = vlabel()
         for node in g.nodes():
             cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
-        for step in xrange(200):
-            if step <=190:
+        for step in xrange(stepsize+30):
+            if step<stepsize:
                 pos = {}.fromkeys(g.nodes(), k)
-                vecs = update_epoch(vecs, pos, cgrad)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
             else:
                 pos = {}.fromkeys(g.nodes(), 1)
                 vecs = update_epoch(vecs, pos, cgrad)
@@ -676,10 +845,10 @@ def sgd_vlpa(g, k=6, gamma=0.7, ifrecord=True):
 
         return vecs, mods
 
-    vecs, mods = first_updates(vecs,mods,k)
+    vecs, mods = first_updates(250, vecs,mods,k)
 
     ## algorithm output
-    algorithm = 'louvain_vlpa'
+    algorithm = 'sgd_vlpa'
     labels = vecs.to_labels()
     modularity = community.modularity(labels, g)
     t2 = time.time() - t1
@@ -689,7 +858,7 @@ def sgd_vlpa(g, k=6, gamma=0.7, ifrecord=True):
     return result
 
 
-def sgd_vlpa_dot(g,k=6, gamma=0.7,ifrecord=True):
+def time_sgd_vlpa(g, k=6, ifrecord=True):
     # try to get the best time complixity
     # decide if record mods
     if ifrecord == True:
@@ -720,240 +889,52 @@ def sgd_vlpa_dot(g,k=6, gamma=0.7,ifrecord=True):
             pgrad = vlabel()
             for neigh in neighbors[node]:
                 pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
             grad = pgrad.paddc(cgrad, degree[node])
             if len(grad) == 0:
                 update = vecs[node]
             else:
-                update = grad.nlarg(pos[node]).normalize(n=2)
+                update = grad.randnlarg(pos[node]).normalize(n=2)
                 cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
                 cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
             vecs[node] = update
         return vecs
 
-    def update_epoch_dot(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                update = vecs[node]
-            else:
-                inner = vecs[node].dot(grad.normalize(n=2))
-                gamma = max(np.sqrt(inner), 0.1)
-                update = (grad * gamma + vecs[node] * (1 - gamma)).nlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-            vecs[node] = update
-        return vecs
 
-    def first_updates(vecs,mods,k):
+    def first_updates(stepsize, vecs,mods,k):
         shuffled_nodes = g.nodes()
         random.shuffle(shuffled_nodes)
         cgrad = vlabel()
         for node in g.nodes():
             cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
-        for step in xrange(100):
-            if step <=90:
+        for step in xrange(stepsize+30):
+            if step<stepsize:
                 pos = {}.fromkeys(g.nodes(), k)
-                vecs = update_epoch_dot(vecs, pos, cgrad)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
             else:
                 pos = {}.fromkeys(g.nodes(), 1)
                 vecs = update_epoch(vecs, pos, cgrad)
             record(mods)
+            l = len(mods)
+            if l>2:
+                mod_z = mods[l-1]
+                mod_y = mods[l-2]
+                err = mod_z - mod_y
+                if abs(err)<0.00001:
+                    return l
 
-        return vecs, mods
+        return 250
 
-    vecs, mods = first_updates(vecs,mods,k)
-    ## algorithm output
-    algorithm = 'louvain_vlpa_dot'
-    modularity = mods[len(mods) - 1]
-    labels = vecs.to_labels()
-    t2 = time.time() - t1
-    ## get algorithm result
-    result = algorithm_result(algorithm, t2, labels, vmods, mods, modularity)
-
-    return result
-
-
-def fixed_zeronorm_louvain_vlpa(g, k=6, gamma=0.7,ifrecord=True):
-    # try to get the best time complixity
-    if ifrecord == True:
-        def record(mods):
-            mods.append(community.modularity(vecs.to_labels(), g))
-    else:
-        def record(mods):
-            pass
-    # initiazaiton
-    t1 = time.time()
-    vecs = vlabels()
-    vecs.initialization(g)
-    mods = []
-    n = float(len(g.nodes()))
-    m = float(len(g.edges()))
-    pos = g.degree()
-    degree = {}
-    neighbors = {}
-    for node in g.nodes():
-        degree[node] = g.degree(node)
-        neighbors[node] = g.neighbors(node)
-
-    def update_epoch_random(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                pass
-            else:
-                update = (grad * gamma + vecs[node] * (1 - gamma)).randnlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-                vecs[node] = update
-        return vecs
-
-    def update_epoch(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                update = vecs[node]
-            else:
-                update = grad.nlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-            vecs[node] = update
-        return vecs
-
-    def first_updates(vecs,mods,k):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        cgrad = vlabel()
-        for node in g.nodes():
-            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
-        for step in xrange(300):
-            if step<280:
-                pos = {}
-                for node in g.nodes():
-                    pos[node] = random.randint(1, k)
-                vecs = update_epoch_random(vecs,pos,cgrad)
-            else:
-                pos ={}.fromkeys(g.nodes(),1)
-                vecs = update_epoch(vecs,pos,cgrad)
-            record(mods)
-
-        return vecs, mods
-
-    vecs, mods = first_updates(vecs,mods,k)
+    t = first_updates(250, vecs,mods,k)
 
     ## algorithm output
-    algorithm = 'fixed_pos_louvain_vlpa'
-    labels = vecs.to_labels()
-    modularity = community.modularity(labels, g)
-    t2 = time.time() - t1
-    ## get algorithm result
-    result = algorithm_result(algorithm, t2, labels, mods, modularity)
-
-    return result
-
-
-def fixed_zeronorm_louvain_vlpa_dot(g, k=6,ifrecord=True):
-    # try to get the best time complixity
-    if ifrecord == True:
-        def record(mods):
-            mods.append(community.modularity(vecs.to_labels(), g))
-    else:
-        def record(mods):
-            pass
-    # initiazaiton
-    t1 = time.time()
-    vecs = vlabels()
-    vecs.initialization(g)
-    mods = []
-    n = float(len(g.nodes()))
-    m = float(len(g.edges()))
-    pos = g.degree()
-    degree = {}
-    neighbors = {}
-    for node in g.nodes():
-        degree[node] = g.degree(node)
-        neighbors[node] = g.neighbors(node)
-
-    def update_epoch_random(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                update = vecs[node]
-            else:
-                inner = vecs[node].dot(grad.normalize(n=2))
-                gamma = max(np.sqrt(inner), 0.1)
-                update = (grad * gamma + vecs[node] * (1 - gamma)).randnlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-            vecs[node] = update
-        return vecs
-
-    def update_epoch(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                update = vecs[node]
-            else:
-                update = grad.nlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-            vecs[node] = update
-        return vecs
-
-    def first_updates(vecs,mods,k):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        cgrad = vlabel()
-        for node in g.nodes():
-            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
-        for step in xrange(300):
-            if step<280:
-                pos = {}
-                for node in g.nodes():
-                    pos[node] = random.randint(1, k)
-                vecs = update_epoch_random(vecs,pos,cgrad)
-            else:
-                pos ={}.fromkeys(g.nodes(),1)
-                vecs = update_epoch(vecs,pos,cgrad)
-            record(mods)
-
-        return vecs, mods
-
-    vecs, mods = first_updates(vecs,mods,k)
-
-    ## algorithm output
-    algorithm = 'fixed_pos_louvain_vlpa_dot'
-    labels = vecs.to_labels()
-    modularity = community.modularity(labels, g)
-    t2 = time.time() - t1
-    ## get algorithm result
-    result = algorithm_result(algorithm, t2, labels, mods, modularity)
-
-    return result
+    return t
 
 
 def random_vlpa(g, k=6, ifrecord=True):
@@ -985,107 +966,11 @@ def random_vlpa(g, k=6, ifrecord=True):
             pgrad = vlabel()
             for neigh in neighbors[node]:
                 pgrad += vecs[neigh]
-
             grad = pgrad.paddc(cgrad, degree[node])
             if len(grad) == 0:
                 pass
             else:
                 update = grad.randnlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-                vecs[node] = update
-        return vecs
-
-    def update_epoch(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                update = vecs[node]
-            else:
-                update = grad.nlarg(pos[node]).normalize(n=2)
-                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
-                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
-            vecs[node] = update
-        return vecs
-
-    def first_updates(vecs,mods,k):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        cgrad = vlabel()
-        for node in g.nodes():
-            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
-        for step in xrange(300):
-            if step<280:
-                pos = {}
-                for node in g.nodes():
-                    pos[node] = random.randint(1, k)
-                vecs = update_epoch_random(vecs,pos,cgrad)
-            elif step <283:
-                pos ={}.fromkeys(g.nodes(),3)
-                vecs = update_epoch(vecs,pos,cgrad)
-            elif step <286:
-                pos ={}.fromkeys(g.nodes(),2)
-                vecs = update_epoch(vecs,pos,cgrad)
-            elif step <287:
-                pos = {}.fromkeys(g.nodes(), 1)
-                vecs = update_epoch(vecs, pos, cgrad)
-            record(mods)
-
-        return vecs, mods
-
-    vecs, mods = first_updates(vecs,mods,k)
-
-    ## algorithm output
-    algorithm = 'random_vlpa'
-    labels = vecs.to_labels()
-    modularity = community.modularity(labels, g)
-    t2 = time.time() - t1
-    ## get algorithm result
-    result = algorithm_result(algorithm, t2, labels, mods, modularity)
-
-    return result
-
-
-def random_vlpa_best(g, k=6, ifrecord=True):
-    # try to get the best time complixity
-    if ifrecord == True:
-        def record(mods):
-            mods.append(community.modularity(vecs.to_labels(), g))
-    else:
-        def record(mods):
-            pass
-    # initiazaiton
-    t1 = time.time()
-    vecs = vlabels()
-    vecs.initialization(g)
-    mods = []
-    n = float(len(g.nodes()))
-    m = float(len(g.edges()))
-    pos = g.degree()
-    degree = {}
-    neighbors = {}
-    for node in g.nodes():
-        degree[node] = g.degree(node)
-        neighbors[node] = g.neighbors(node)
-
-    def update_epoch_random(vecs,pos,cgrad):
-        shuffled_nodes = g.nodes()
-        random.shuffle(shuffled_nodes)
-        for node in shuffled_nodes:
-            pgrad = vlabel()
-            for neigh in neighbors[node]:
-                pgrad += vecs[neigh]
-            grad = pgrad.paddc(cgrad, degree[node])
-            if len(grad) == 0:
-                pass
-            else:
-                gamma =0.7
-                update = vecs[node].linear_combination(grad, 1 - gamma, gamma).randnlarg(pos[node]).normalize(n=2)
                 cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
                 cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
                 vecs[node] = update
@@ -1134,10 +1019,319 @@ def random_vlpa_best(g, k=6, ifrecord=True):
 
         return vecs, mods
 
-    vecs, mods = first_updates(270,vecs,mods,k)
+    vecs, mods = first_updates(250,vecs,mods,k)
 
     ## algorithm output
-    algorithm = 'random_vlpa_best'
+    algorithm = 'random_vlpa'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+
+def new_random_vlpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = randomy(grad,vecs[node],pos[node])
+                update = grad.nlarg(pos[node]).randnlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch_random2(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.randnlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize-100:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random2(vecs, pos, cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'new_random_vlpa'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+def gradient_random_vlpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update1 = grad.randnlarg(pos[node]).normalize(n=2)
+                update = update1.plusandmul(vecs[node],1.0).nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'gradient_random_vlpa'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+def random_vlpa_test(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = vecs[node].linear_combination(grad, 1.0, 0.5).randnlarg(pos[node])
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        for node in shuffled_nodes:
+            vecs[node]=vecs[node].normalize(n=2)
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'random_vlpa_test'
     labels = vecs.to_labels()
     modularity = community.modularity(labels, g)
     t2 = time.time() - t1
@@ -1146,6 +1340,1046 @@ def random_vlpa_best(g, k=6, ifrecord=True):
 
     return result
 
+def random_vlpa_l1norm(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = vecs[node].linear_combination(grad, 1.0, 0.5).randnlarg(pos[node])
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        for node in shuffled_nodes:
+            vecs[node]=vecs[node].normalize(n=1)
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=1)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'random_vlpa_test'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
+
+
+""" methods in paper"""
+
+def vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    # propagation
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 30:
+                pos = {}.fromkeys(g.nodes(), 3)
+                vecs = update_epoch(vecs, pos, cgrad)
+            elif step <stepsize + 45:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250, vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
+
+def vpas(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.randnlarg(pos[node],p=2).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 30:
+                pos ={}.fromkeys(g.nodes(),3)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 45:
+                pos = {}.fromkeys(g.nodes(), 2)
+                vecs = update_epoch(vecs, pos, cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'VPAs'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+def synchronous_vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    # propagation
+    def update_epoch(vecs,pos):
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        updates = vlabels()
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                updates[node] = vecs[node]
+            else:
+                updates[node] = grad.nlarg(pos[node]).normalize(n=2)
+        vecs = updates
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos)
+            elif step <stepsize + 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos)
+            elif step <stepsize + 30:
+                pos = {}.fromkeys(g.nodes(), 3)
+                vecs = update_epoch(vecs, pos)
+            elif step <stepsize + 45:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250, vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'synchronous_VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
+
+def mixed_vpas(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.randnlarg(pos[node],p=2).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize):
+            if step<50:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs, pos, cgrad)
+            else:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs, pos, cgrad)
+
+            record(mods)
+
+        return vecs, mods
+
+    def end_updates(vecs,mods):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(60):
+            if step < 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step < 30:
+                pos ={}.fromkeys(g.nodes(),3)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step < 45:
+                pos = {}.fromkeys(g.nodes(), 2)
+                vecs = update_epoch(vecs, pos, cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+    vecs, mods = end_updates(vecs, mods)
+
+    ## algorithm output
+    algorithm = 'mixed_VPAs'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+
+def useful_vpas(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.randnlarg2(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(),1)
+                # for node in g.nodes():
+                #     pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'useful_VPAs'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+
+def ball_vpas(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            grad = grad.nlarg(pos[node])
+            grad = randomball(grad,0.7*grad.norm()).positive()
+
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                #pos = {}.fromkeys(g.nodes(),1)
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'ball_VPAs'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+
+def useful_vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    def useful_dim(label, p):
+        list_sorted = sorted(label, key=lambda x: label[x], reverse=True)
+        num = 0
+        value = 0.0
+        for i in list_sorted:
+            if value < np.sqrt(p):
+                value += (label[i])**2
+                num += 1
+        return num
+
+    def record_vmods(vmods):
+        vmods.append(vmod(vecs,g))
+
+    def record_dims(dims):
+        ave = np.average(np.array(pos.values()))
+        dims.append(ave)
+
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    vmods = []
+    dims = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = {}.fromkeys(g.nodes(),k)
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+    def change_condition(dims):
+        if len(dims)<30:
+            return False
+        elif len(dims)>100:
+            return True
+        elif abs(dims[len(dims)-1]-dims[len(dims)-2])>0.001:
+            return False
+        else:
+            return True
+
+
+
+    # propagation
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def update_edim(vecs,pos):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            edim = useful_dim(vecs[node],0.95)
+            pos[node] = edim
+        return pos
+
+
+    def first_updates(vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        pos = {}.fromkeys(g.nodes(), k)
+        for step in xrange(30):
+            if step < 10:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <20:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+            record_vmods(vmods)
+            record_dims(dims)
+
+        return vecs,mods
+
+    cgrad = vlabel()
+    for node in g.nodes():
+        cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+
+    while change_condition(dims) == False:
+        vecs = update_epoch(vecs, pos, cgrad)
+        pos = update_edim(vecs, pos)
+        record(mods)
+        record_dims(dims)
+        pass
+    print(len(dims))
+
+    vecs,mods= first_updates(vecs,mods,k)
+    print(dims)
+
+    ## algorithm output
+    algorithm = 'usful_VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
+
+
+def why_vpas(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+
+
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    def update_epoch_random(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                pass
+            else:
+                update = grad.randnlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+                vecs[node] = update
+        return vecs
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+30):
+            if step<stepsize:
+                pos = {}
+                for node in g.nodes():
+                    pos[node] = random.randint(1, k)
+                vecs = update_epoch_random(vecs,pos,cgrad)
+            elif step <stepsize + 10:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 20:
+                pos ={}.fromkeys(g.nodes(),1)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250,vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'VPAs'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+    return result
+
+
+def de_vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    # propagation
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            record(mods)
+        else:
+            pass
+
+        return vecs, mods
+
+    vecs, mods = first_updates(100, vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return vecs
+
+def different_init_vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.random_init1(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    # propagation
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 30:
+                pos = {}.fromkeys(g.nodes(), 3)
+                vecs = update_epoch(vecs, pos, cgrad)
+            elif step <stepsize + 45:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    vecs, mods = first_updates(250, vecs,mods,k)
+
+    ## algorithm output
+    algorithm = 'different_init_VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
 
 """ other people's method"""
 
@@ -1257,6 +2491,7 @@ def louvain(g, ifrecord=True):
 
 """ temporal unused """
 
+
 def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
     # initiazaiton
     modularity = []
@@ -1360,6 +2595,7 @@ def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
     algorithm = 'vlpa'
     modularity = mods[len(mods) - 1]
     t2 = time.time()
+    nmi = nmi()
 
     """
             output result
@@ -1367,7 +2603,7 @@ def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
     """
 
     result = algorithm_output(algorithm=algorithm, time=t2 - t1, labels=vecs.to_labels()
-                              , mods=mods, mod=modularity)
+                              , mods=mods, mod=modularity,nmi=nmi)
 
     """
     print result
@@ -1377,7 +2613,7 @@ def final_vlpa(g, gamma=0.5, mod='nothing', pos_shrink='False'):
     return vecs.to_labels()
 
 
-def convergence_vlpa(g, gamma=1.0,mod='nothing'):
+def convergence_vlpa(g, gamma=1.0):
     ###choose model
     if mod == 'nothing':
         def grad(vecs):
@@ -1974,6 +3210,141 @@ def final_vlpa(g):
     return result
 
 """ agg methods """
+def agg_vpa(g, k=6, ifrecord=True):
+    # try to get the best time complixity
+    # decide if record mods
+    if ifrecord == True:
+        def record(mods):
+            mods.append(community.modularity(vecs.to_labels(), g))
+    else:
+        def record(mods):
+            pass
+    # initiazaiton
+    t1 = time.time()
+    vecs = vlabels()
+    vecs.initialization(g)
+    mods = []
+    n = float(len(g.nodes()))
+    m = float(len(g.edges()))
+    pos = g.degree()
+    degree = {}
+    neighbors = {}
+    for node in g.nodes():
+        degree[node] = g.degree(node)
+        neighbors[node] = g.neighbors(node)
+
+    # propagation
+    def agg_graph(vecs,mods):
+        v_all = list(set([v.keys()[0] for v in vecs.values()]))
+        print(v_all)
+        g_agg = nx.Graph()
+        g_agg.add_nodes_from(v_all)
+
+        for edge in g.edges():
+            e0 = edge[0]
+            e1 = edge[1]
+            e0_new = vecs[e0].keys()[0]
+            e1_new = vecs[e1].keys()[0]
+            g_agg.add_edge(e0_new,e1_new)
+            g_agg.add_edge(e1_new,e0_new)
+        return g_agg
+
+    def update(g_label, to_labels, g):
+        #print(to_labels)
+        v_all = set(to_labels.values())
+        label2mod = {}
+        for g_la in v_all:
+            new_labels = {}
+            for node in to_labels:
+                if to_labels[node] == g_label:
+                    new_labels[node] = g_la
+                else:
+                    new_labels[node] = to_labels[node]
+            new_q = community.modularity(new_labels, g)
+            label2mod[g_la] = new_q
+        #print(label2mod)
+        list = sorted(label2mod.keys(), key=lambda x: label2mod[x],reverse=True)
+        #print(list)
+        return list[0]
+
+
+    def update_epoch(vecs,pos,cgrad):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        for node in shuffled_nodes:
+            pgrad = vlabel()
+            for neigh in neighbors[node]:
+                pgrad += vecs[neigh]
+            pgrad.plusandmul(vecs[node], float(degree[node] ** 2) / (2 * m))
+            grad = pgrad.paddc(cgrad, degree[node])
+            if len(grad) == 0:
+                update = vecs[node]
+            else:
+                update = grad.nlarg(pos[node]).normalize(n=2)
+                cgrad.plusandmul(update, -float(degree[node]) / (2 * m))
+                cgrad.plusandmul(vecs[node], float(degree[node]) / (2 * m)) # update cgrad
+            vecs[node] = update
+        return vecs
+
+    def first_updates(stepsize, vecs,mods,k):
+        shuffled_nodes = g.nodes()
+        random.shuffle(shuffled_nodes)
+        cgrad = vlabel()
+        for node in g.nodes():
+            cgrad.plusandmul(vecs[node], -float(degree[node]) / (2 * m))
+        for step in xrange(stepsize+60):
+            if step<stepsize:
+                pos = {}.fromkeys(g.nodes(), k)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 15:
+                pos ={}.fromkeys(g.nodes(),4)
+                vecs = update_epoch(vecs,pos,cgrad)
+            elif step <stepsize + 30:
+                pos = {}.fromkeys(g.nodes(), 3)
+                vecs = update_epoch(vecs, pos, cgrad)
+            elif step <stepsize + 45:
+                pos ={}.fromkeys(g.nodes(),2)
+                vecs = update_epoch(vecs,pos,cgrad)
+            else:
+                pos = {}.fromkeys(g.nodes(), 1)
+                vecs = update_epoch(vecs, pos, cgrad)
+            record(mods)
+
+        return vecs, mods
+
+    def second_updates(vecs,mods):
+        to_labels = vecs.to_labels()
+        v_all = list(set(to_labels.values()))
+        for vkey in v_all:
+            vkey_best = update(vkey,to_labels,g)
+            #print(vkey_best,vkey)
+            if vkey_best==vkey:
+                pass
+            else:
+                for node in to_labels:
+                    if to_labels[node] == vkey:
+                        to_labels[node] = vkey_best
+        return to_labels
+
+
+    vecs, mods = first_updates(200, vecs,mods,k)
+    middle_labels = second_updates(vecs,mods)
+    for node in middle_labels:
+        vecs[node] = vlabel({middle_labels[node]:1.0})
+    vecs, mods = first_updates(5, vecs, mods, k)
+
+    g_agg = agg_graph(vecs,mods)
+
+
+    ## algorithm output
+    algorithm = 'agg_VPA'
+    labels = vecs.to_labels()
+    modularity = community.modularity(labels, g)
+    t2 = time.time() - t1
+    ## get algorithm result
+    result = algorithm_result(algorithm, t2, labels, mods, modularity)
+
+    return result
 
 def final_agg_louvain(g, k=6, gamma=0.7):
     # aggregtate when we doing the calculation
@@ -2062,7 +3433,6 @@ def final_agg_louvain(g, k=6, gamma=0.7):
     t2 = time.time() - t1
     ## get algorithm result
     result = algorithm_result(algorithm, t2, labels, vmods, mods, modularity)
-
     return result
 
 
